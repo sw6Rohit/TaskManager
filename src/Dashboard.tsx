@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, TouchableOpacity, Alert, Image, TextInput, Text, FlatList, Platform, StyleSheet, KeyboardAvoidingView } from "react-native";
+import { View, TouchableOpacity, Alert, Image, TextInput, Text, FlatList, Platform, StyleSheet, KeyboardAvoidingView, Keyboard } from "react-native";
 import AddTaskForm from "./AddTaskForm";
 import { axiosRequest } from "./utils/ApiRequest";
 import Constant from "./utils/Constant";
@@ -37,6 +37,74 @@ const DashBoard = () => {
         date.setDate(date.getDate() - 2); // subtract 2 days
         return date;
     });
+
+    const [showSuggestions, setShowSuggestions] = useState(false);
+    const [mentionQuery, setMentionQuery] = useState('');
+
+    const [task, setTask] = useState<any>();
+    const [taskItems, setTaskItems] = useState<any>([]);
+     const [agents,setAgents] = useState<any>([])
+
+    const handleAddTask = () => {
+        Keyboard.dismiss();
+        const params = {
+            title: task,
+            category: 66,
+
+        }
+        addTask(params)
+
+        setTask(null);
+    }
+
+
+    const handleTextChange = (text: string) => {
+        setTask(text);
+        
+        const lastAt = text.lastIndexOf('@');
+        if (lastAt !== -1) {
+            const mentionText = text.slice(lastAt + 1);
+            setMentionQuery(mentionText);
+            setShowSuggestions(true);
+        } else {
+            setShowSuggestions(false);
+            const textBeforeAt = task.slice(0, task.indexOf('@'));
+        }
+    };
+
+    const handleSelectAgent = (agent: string) => {
+        const lastAt = task.lastIndexOf('@');
+        const newText = task.slice(0, lastAt + 1) + agent + ' ';
+        setTask(newText);
+        setShowSuggestions(false);
+    };
+
+     const filteredAgents = agents.filter((agent:any) =>
+    agent.AgentName.toLowerCase().includes(mentionQuery.toLowerCase())
+  );
+
+
+
+    useEffect(() => {
+        getProjectList();
+    }, [])
+    const getProjectList = async () => {
+        try {
+            const param = {
+                "UserId": -1,
+                "TaskId": -1
+            };
+            await axiosRequest(Url.GET_PROJECTLIST, Constant.API_REQUEST_METHOD.POST, param)
+                .then(({ data }) => {
+                    const { userList } = data;
+                    setAgents(userList )
+                    console.log(userList);
+                })
+        } catch (error) {
+            console.log(error);
+        }
+    }
+
 
 
     const toggleTaskModal = () => {
@@ -144,7 +212,7 @@ const DashBoard = () => {
 
             const getTaskApi = await axiosRequest(Url.GET_TASK, Constant.API_REQUEST_METHOD.GET, param)
                 .then(({ data }) => {
-                    console.log(data);
+                    // console.log(data);
                     setOldTodos(data)
                     setTodos(data)
 
@@ -205,6 +273,7 @@ const DashBoard = () => {
                 onClose={() => toggleTaskModal()} />
                 :
                 <>
+                                {console.log(showSuggestions, mentionQuery)}
                     <View style={{}}>
                         <View style={styles.header}>
                             <TouchableOpacity onPress={() => Alert("Clicked!")}></TouchableOpacity>
@@ -215,22 +284,6 @@ const DashBoard = () => {
                                 />
                             </TouchableOpacity>
                         </View>
-                        {/* <View style={styles.searchBar}>
-                            <TextInput
-                                placeholder="Search tasks"
-                                // value={searchQuery}
-                                // onChangeText={(text) => setSearchQuery(text)}
-                                // onChange={(text) => console.log(text.)}
-                                style={styles.searchInput}
-                                onSubmitEditing={() => onSearch(searchQuery)} // Search when pressing enter
-                            />
-                            <TouchableOpacity
-                                onPress={() => onSearch(searchQuery)}
-                                style={styles.searchIcon}
-                            >
-                                <Icon name="search" size={24} color="#0078D4" />
-                            </TouchableOpacity>
-                        </View> */}
 
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', margin: 10 }}>
                             <TouchableOpacity onPress={() => setShowFromDatePicker(true)} style={styles.dateButton}>
@@ -243,7 +296,37 @@ const DashBoard = () => {
                                 <Text style={{ color: '#fff' }}>Filter</Text>
                             </TouchableOpacity>
                         </View>
-                            <TaskFilters taskList={oldTodos}/>
+                       <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.writeTaskWrapper}
+        >
+        <TextInput
+          style={styles.input}
+          placeholder={'Write a task'}
+          value={task}
+          onChangeText={handleTextChange}
+          />
+        <TouchableOpacity onPress={() => console.log('Submit task')}>
+          <View style={styles.addWrapper}>
+            <Text style={styles.addText}>+</Text>
+          </View>
+        </TouchableOpacity>
+      </KeyboardAvoidingView>
+
+      {showSuggestions && mentionQuery.length > 0 && (
+        <View style={styles.suggestionsContainer}>
+          <FlatList
+            data={filteredAgents}
+            keyExtractor={(item) => item.AgentId.toString()}
+            renderItem={({ item }) => (
+              <TouchableOpacity onPress={() => handleSelectAgent(item.AgentName)}>
+                <Text style={styles.suggestionItem}>{item.AgentName}</Text>
+              </TouchableOpacity>
+            )}
+          />
+        </View>
+      )}
+                        <TaskFilters taskList={oldTodos} />
 
 
                         {/* <View style={{}}>
@@ -286,38 +369,6 @@ const DashBoard = () => {
                             }}
                         />
                     )}
-                    {/* <KeyboardAvoidingView style={{ flexDirection: 'row', marginHorizontal: 10, marginBottom: 10 }}>
-  <TextInput
-    value={quickTaskTitle}
-    onChangeText={setQuickTaskTitle}
-    placeholder="Quick add task..."
-    style={{
-      flex: 1,
-      borderWidth: 1,
-      borderColor: '#ccc',
-      borderRadius: 8,
-      paddingHorizontal: 10,
-      height: 40,
-      marginRight: 10
-    }}
-  />
-  <TouchableOpacity
-    onPress={() => {
-      if (quickTaskTitle.trim()) {
-        addTask({ taskTitle: quickTaskTitle });
-        setQuickTaskTitle('');
-      }
-    }}
-    style={{
-      backgroundColor: '#0078D4',
-      paddingHorizontal: 15,
-      justifyContent: 'center',
-      borderRadius: 8,
-    }}
-  >
-    <Text style={{ color: '#fff' }}>Add</Text>
-  </TouchableOpacity>
-</KeyboardAvoidingView> */}
 
                     <TouchableOpacity style={styles.addButton} onPress={toggleTaskModal}>
                         <Text style={styles.plusText}>+</Text>
@@ -422,5 +473,49 @@ const styles = StyleSheet.create({
         paddingVertical: 6,
         marginHorizontal: 5,
     },
-
+    writeTaskWrapper: {
+        // position: 'absolute',
+        // bottom: 60,
+        width: '100%',
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+        alignItems: 'center'
+    },
+    input: {
+        paddingVertical: 15,
+        paddingHorizontal: 15,
+        backgroundColor: '#FFF',
+        borderRadius: 60,
+        borderColor: '#C0C0C0',
+        borderWidth: 1,
+        width: 250,
+    },
+    addWrapper: {
+        width: 60,
+        height: 60,
+        backgroundColor: '#FFF',
+        borderRadius: 60,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderColor: '#C0C0C0',
+        borderWidth: 1,
+    },
+    addText: {},
+    suggestionsContainer: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#ccc',
+    position: 'absolute',
+    top: 170,
+    left: 10,
+    right: 10,
+    maxHeight: 150,
+    borderRadius: 6,
+    zIndex: 999,
+  },
+  suggestionItem: {
+    padding: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
 });

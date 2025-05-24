@@ -9,6 +9,7 @@ import {
   UIManager,
   ScrollView,
 } from 'react-native';
+import { FlatList } from 'react-native-gesture-handler';
 
 // Filters with numeric statusFlag values
 const filters = [
@@ -48,7 +49,7 @@ if (Platform.OS === 'android') {
 
 const TaskFilters = ({taskList}:any) => {
   const [expandedSection, setExpandedSection] = useState<number | null>(null);
-  console.log(taskList);
+  // console.log(taskList);
   
 
   const toggleSection = (statusFlag: number) => {
@@ -57,33 +58,42 @@ const TaskFilters = ({taskList}:any) => {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      {filters.map((item) => {
-        const isExpanded = expandedSection === item.statusFlag;
-        const count = statusCounts[item.statusFlag] ?? 0;
+<ScrollView style={[styles.container]}>
+  {filters.map((item) => {
+    const isExpanded = expandedSection === item.statusFlag;
 
-        return (
-          <View key={item.statusFlag} style={styles.card}>
-            <TouchableOpacity
-              onPress={() => toggleSection(item.statusFlag)}
-              style={styles.header}
-            >
-              <Text style={styles.headerText}>
-                {item.label} 
-              </Text>
-            </TouchableOpacity>
-            <ScrollView style={{maxHeight:400}}>
-            {
-            isExpanded && taskList.filter((f:any)=>f?.statusFlag==item.statusFlag).map((task:any)=>((
-              <View style={styles.body}>
-                <Text style={styles.bodyText}>{task?.taskTitle}</Text>
-              </View>
-            )))}
-            </ScrollView>
-          </View>
-        );
-      })}
-    </ScrollView>
+    return (
+      <View key={item.statusFlag} style={styles.card}>
+        <TouchableOpacity
+          onPress={() => toggleSection(item.statusFlag)}
+          style={styles.header}
+        >
+          <Text style={styles.headerText}>
+            {item.label}
+          </Text>
+        </TouchableOpacity>
+
+        {isExpanded && (
+          <ScrollView
+            style={{ maxHeight: 200 }}
+            nestedScrollEnabled={true} // Important for Android
+          >
+            {taskList.filter((f: any) => f?.statusFlag == item.statusFlag).length>0  ?
+              taskList.filter((f: any) => f?.statusFlag == item.statusFlag)
+              .map((task: any, idx: number) => (
+                <View key={idx} style={styles.body}>
+                  <Text style={styles.bodyText}>{task?.taskTitle}</Text>
+                </View>
+              )):
+              <View><Text>No Data Found</Text></View>
+              }
+          </ScrollView>
+        )}
+      </View>
+    );
+  })}
+</ScrollView>
+
   );
 };
 

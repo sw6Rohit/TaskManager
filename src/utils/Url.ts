@@ -6,5 +6,6 @@ export default {
     LOGOUT:'fieldagent-logout',
     ADD_TASK:'/task/createtask',
     GET_TASK:'/task/by-daterange',
+    GET_PROJECTLIST:'/taskmaster/view',
     
 }

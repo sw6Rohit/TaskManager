@@ -19,6 +19,9 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import axios from 'axios';
 import ToggleButton from './components/ToggleButton'
 import moment from 'moment';
+import { axiosRequest } from './utils/ApiRequest';
+import Url from './utils/Url';
+import Constant from './utils/Constant';
 
 const AddTaskForm = ({ onSubmit, onClose }: any) => {
   const [showDescription, setShowDescription] = useState(false);
@@ -98,6 +101,8 @@ const AddTaskForm = ({ onSubmit, onClose }: any) => {
     { label: 'Project 3', value: 3 },
   ];
 
+
+
   useEffect(() => {
     const fetchAndBuildTree = async () => {
       try {
@@ -123,24 +128,27 @@ const AddTaskForm = ({ onSubmit, onClose }: any) => {
     fetchAndBuildTree();
   }, []);
 
-  useEffect(()=>{
+  useEffect(() => {
     getPoints(selectedNode?.CourseName)
-  },[selectedNode])
-  const getPoints =async (catName:any='')=>{
-      try {
-        const {data} = await axios.get(
-          `https://atm.sunobhaiya.com/Task/GetCategorydetails?categoryName=${catName}`,
-          {
-            headers: { 'Content-Type': 'application/json' },
-          }
-        );
-        setSelectedPoint(data)
-        
-      }
-      catch (error) {
-        console.error('Error fetching data:', error);
-      }
+  }, [selectedNode])
+
+
+  
+  const getPoints = async (catName: any = '') => {
+    try {
+      const { data } = await axios.get(
+        `https://atm.sunobhaiya.com/Task/GetCategorydetails?categoryName=${catName}`,
+        {
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+      setSelectedPoint(data)
+
     }
+    catch (error) {
+      console.error('Error fetching data:', error);
+    }
+  }
 
   const handleDateSelect = (option: string) => {
     let selected: string | null = null;
@@ -213,7 +221,7 @@ const AddTaskForm = ({ onSubmit, onClose }: any) => {
     setTreeData(prev => toggleRecursive(prev));
   };
 
-  const toggleSwitch=(value:boolean)=>{
+  const toggleSwitch = (value: boolean) => {
     setIsAllDay(value);
     setShowDateMenu(false)
   }
@@ -222,7 +230,7 @@ const AddTaskForm = ({ onSubmit, onClose }: any) => {
       style={{ flex: 1, marginBottom: 5, paddingHorizontal: 10 }}
     >
       <Formik
-        initialValues={{ p_name: '', description: '', dueDate: moment().add(1,'day').format('YYYY-MM-DD'), assignedTo: '', title: '', category: '', }}
+        initialValues={{ p_name: '', description: '', dueDate: moment().add(1, 'day').format('YYYY-MM-DD'), assignedTo: '', title: '', category: '', }}
         validationSchema={validationSchema}
         onSubmit={(values, actions) => {
           onSubmit(values);
@@ -268,8 +276,8 @@ const AddTaskForm = ({ onSubmit, onClose }: any) => {
 
               {showDescription && (
                 <>
-                <TouchableOpacity onPress={() => setShowDescription(false)}>
-                  <Text style={styles.linkText}>Description -</Text>
+                  <TouchableOpacity onPress={() => setShowDescription(false)}>
+                    <Text style={styles.linkText}>Description -</Text>
                   </TouchableOpacity>
                   <TextInput
                     style={[styles.input, styles.textArea]}
@@ -361,8 +369,8 @@ const AddTaskForm = ({ onSubmit, onClose }: any) => {
               </TouchableOpacity>
             )}
             {showProjName && <>
-            <TouchableOpacity onPress={() => setShowProjName(false)}>
-              <Text style={styles.linkText}>Project Name -</Text>
+              <TouchableOpacity onPress={() => setShowProjName(false)}>
+                <Text style={styles.linkText}>Project Name -</Text>
               </TouchableOpacity>
               <DropdownModal
                 data={items2}
@@ -422,28 +430,29 @@ const AddTaskForm = ({ onSubmit, onClose }: any) => {
                 {values.dueDate || 'Select due date'}
               </Text>
             </TouchableOpacity> */}
-            
+
             <View style={styles.container}>
               <Ionicons name="alarm-outline" size={24} color="black" style={styles.icon} />
 
               <View style={styles.textContainer}>
                 <Text style={styles.title}>Due Date</Text>
                 <TouchableOpacity
-              onPress={() => !isAllDay? setShowDateMenu(true) : setShowDateMenu(false)}
-              // style={styles.dateInput}
-            >
-              <Text style={styles.subtitle}>{values.dueDate || 'No reminder set'}</Text>
-              </TouchableOpacity>
+                  onPress={() => !isAllDay ? setShowDateMenu(true) : setShowDateMenu(false)}
+                // style={styles.dateInput}
+                >
+                  <Text style={styles.subtitle}>{values.dueDate || 'No reminder set'}</Text>
+                </TouchableOpacity>
               </View>
 
               <View style={styles.toggleContainer}>
                 <Text style={styles.allDayText}>All Day</Text>
                 <Switch
                   value={isAllDay}
-                  onValueChange={(value)=>{toggleSwitch(value);
+                  onValueChange={(value) => {
+                    toggleSwitch(value);
                     const formatted = formatDate(today);
-                  value ? setFieldValue('dueDate', formatted)
-                  :  setFieldValue('dueDate', moment().add(1,'day').format('YYYY-MM-DD hh:mm:ss'))
+                    value ? setFieldValue('dueDate', formatted)
+                      : setFieldValue('dueDate', moment().add(1, 'day').format('YYYY-MM-DD hh:mm:ss'))
                   }}
                 />
               </View>
