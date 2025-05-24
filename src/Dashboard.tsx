@@ -44,9 +44,9 @@ const DashBoard = () => {
 
     const [task, setTask] = useState<any>();
     const [taskItems, setTaskItems] = useState<any>([]);
-     const [agents,setAgents] = useState<any>([])
+    const [agents, setAgents] = useState<any>([])
 
-     const navigation =useNavigation();
+    const navigation = useNavigation();
 
     const handleAddTask = () => {
         Keyboard.dismiss();
@@ -63,7 +63,7 @@ const DashBoard = () => {
 
     const handleTextChange = (text: string) => {
         setTask(text);
-        
+
         const lastAt = text.lastIndexOf('@');
         if (lastAt !== -1) {
             const mentionText = text.slice(lastAt + 1);
@@ -77,14 +77,14 @@ const DashBoard = () => {
 
     const handleSelectAgent = (agent: string) => {
         const lastAt = task.lastIndexOf('@');
-        const newText = task.slice(0, lastAt + 1) + agent + ' ';
+        const newText = lastAt && task.slice(0, lastAt + 1) + agent + ' ';
         setTask(newText);
         setShowSuggestions(false);
     };
 
-     const filteredAgents = agents.filter((agent:any) =>
-    agent.AgentName.toLowerCase().includes(mentionQuery.toLowerCase())
-  );
+    const filteredAgents = agents.filter((agent: any) =>
+        agent.AgentName.toLowerCase().includes(mentionQuery.toLowerCase())
+    );
 
 
 
@@ -100,8 +100,8 @@ const DashBoard = () => {
             await axiosRequest(Url.GET_PROJECTLIST, Constant.API_REQUEST_METHOD.POST, param)
                 .then(({ data }) => {
                     const { userList } = data;
-                    setAgents(userList )
-                    console.log(userList);
+                    setAgents(userList)
+                    // console.log(userList);
                 })
         } catch (error) {
             console.log(error);
@@ -276,11 +276,10 @@ const DashBoard = () => {
                 onClose={() => toggleTaskModal()} />
                 :
                 <>
-                                {console.log(showSuggestions, mentionQuery)}
                     <View style={{}}>
                         <View style={styles.header}>
                             <TouchableOpacity onPress={() => Alert("Clicked!")}></TouchableOpacity>
-                            <TouchableOpacity onPress={() => navigation.navigate("AttendanceScreen")}>
+                            <TouchableOpacity onPress={() => navigation.navigate("TaskSummary")}>
                                 <Image
                                     source={{ uri: "https://xsgames.co/randomusers/avatar.php?g=male" }}
                                     style={{ width: 40, height: 40, borderRadius: 20 }}
@@ -299,54 +298,37 @@ const DashBoard = () => {
                                 <Text style={{ color: '#fff' }}>Filter</Text>
                             </TouchableOpacity>
                         </View>
-                       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.writeTaskWrapper}
-        >
-        <TextInput
-          style={styles.input}
-          placeholder={'Write a task'}
-          value={task}
-          onChangeText={handleTextChange}
-          />
-        <TouchableOpacity onPress={() => console.log('Submit task')}>
-          <View style={styles.addWrapper}>
-            <Text style={styles.addText}>+</Text>
-          </View>
-        </TouchableOpacity>
-      </KeyboardAvoidingView>
-
-      {showSuggestions && mentionQuery.length > 0 && (
-        <View style={styles.suggestionsContainer}>
-          <FlatList
-            data={filteredAgents}
-            keyExtractor={(item) => item.AgentId.toString()}
-            renderItem={({ item }) => (
-              <TouchableOpacity onPress={() => handleSelectAgent(item.AgentName)}>
-                <Text style={styles.suggestionItem}>{item.AgentName}</Text>
-              </TouchableOpacity>
-            )}
-          />
-        </View>
-      )}
-                        <TaskFilters taskList={oldTodos} />
-
-
-                        {/* <View style={{}}>
-                            <FlatList
-                                keyboardShouldPersistTaps="handled"
-                                style={{ height: 500 }}
-                                data={todos && [...todos].reverse()}
-                                keyExtractor={(item) => item?.taskId?.toString()}
-                                renderItem={({ item }) => (
-                                    <ToDoItem
-                                        todo={item}
-                                        deleteTodo={deleteTodo}
-                                        handleDone={handleDone}
-                                    />
-                                )}
+                        <KeyboardAvoidingView
+                            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                            style={styles.writeTaskWrapper}
+                        >
+                            <TextInput
+                                style={styles.input}
+                                placeholder={'Write a task'}
+                                value={task}
+                                onChangeText={handleTextChange}
                             />
-                        </View> */}
+                            <TouchableOpacity onPress={() => console.log('Submit task')}>
+                                <View style={styles.addWrapper}>
+                                    <Text style={styles.addText}>+</Text>
+                                </View>
+                            </TouchableOpacity>
+                        </KeyboardAvoidingView>
+
+                        {showSuggestions && mentionQuery.length > 0 && (
+                            <View style={styles.suggestionsContainer}>
+                                <FlatList
+                                    data={filteredAgents}
+                                    keyExtractor={(item) => item.AgentId.toString()}
+                                    renderItem={({ item }) => (
+                                        <TouchableOpacity onPress={() => handleSelectAgent(item.AgentName)}>
+                                            <Text style={styles.suggestionItem}>{item.AgentName}</Text>
+                                        </TouchableOpacity>
+                                    )}
+                                />
+                            </View>
+                        )}
+                        <TaskFilters taskList={oldTodos} />
                     </View>
 
                     {showFromDatePicker && (
@@ -505,20 +487,20 @@ const styles = StyleSheet.create({
     },
     addText: {},
     suggestionsContainer: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#ccc',
-    position: 'absolute',
-    top: 170,
-    left: 10,
-    right: 10,
-    maxHeight: 150,
-    borderRadius: 6,
-    zIndex: 999,
-  },
-  suggestionItem: {
-    padding: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
+        backgroundColor: '#fff',
+        borderWidth: 1,
+        borderColor: '#ccc',
+        position: 'absolute',
+        top: 170,
+        left: 10,
+        right: 10,
+        maxHeight: 150,
+        borderRadius: 6,
+        zIndex: 999,
+    },
+    suggestionItem: {
+        padding: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: '#eee',
+    },
 });
