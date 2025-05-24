@@ -7,6 +7,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import Login from './src/Login/Login';
 import DashBoard from './src/Dashboard';
 import FlashMessage from 'react-native-flash-message';
+import AttendanceScreen from './src/screens/AttendanceScreen';
 
 const Stack = createNativeStackNavigator();
 const App = () => {
@@ -22,6 +23,7 @@ const App = () => {
 
         <Stack.Screen name="DashBoard" component={DashBoard} />
         <Stack.Screen name="Login" component={Login} />
+        <Stack.Screen name="AttendanceScreen" component={AttendanceScreen} />
       </Stack.Navigator>
       <FlashMessage position="top" />
     </NavigationContainer>

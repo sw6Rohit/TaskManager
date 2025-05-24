@@ -11,6 +11,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import Url from "./utils/Url";
 import { showMessage } from "react-native-flash-message";
 import TaskFilters from "./components/TaskFilters";
+import { useNavigation } from "@react-navigation/native";
 
 type ToDoType = {
     id: number;
@@ -44,6 +45,8 @@ const DashBoard = () => {
     const [task, setTask] = useState<any>();
     const [taskItems, setTaskItems] = useState<any>([]);
      const [agents,setAgents] = useState<any>([])
+
+     const navigation =useNavigation();
 
     const handleAddTask = () => {
         Keyboard.dismiss();
@@ -277,7 +280,7 @@ const DashBoard = () => {
                     <View style={{}}>
                         <View style={styles.header}>
                             <TouchableOpacity onPress={() => Alert("Clicked!")}></TouchableOpacity>
-                            <TouchableOpacity onPress={() => { }}>
+                            <TouchableOpacity onPress={() => navigation.navigate("AttendanceScreen")}>
                                 <Image
                                     source={{ uri: "https://xsgames.co/randomusers/avatar.php?g=male" }}
                                     style={{ width: 40, height: 40, borderRadius: 20 }}
