@@ -13,6 +13,7 @@ import {
 
 import NetInfo from '@react-native-community/netinfo';
 import Colors from './Colors';
+import Geolocation from '@react-native-community/geolocation';
 
 
 export const checkConnection=()=> {
@@ -102,33 +103,33 @@ export function notLoginAlert(navigation: any) {
 }
 
 
-// export async function findCoordinates() {
+export async function findCoordinates() {
 
-//     try {
-//         const granted = await PermissionsAndroid.request(
-//             PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-//             {
-//                 title: 'Alter',
-//                 message: `We want your location to help you to find things`,
-//                 buttonNegative: 'Cancel',
-//                 buttonPositive: 'OK',
-//             },
-//         );
+    try {
+        const granted = await PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+            {
+                title: 'Alter',
+                message: `We want your location to help you to find things`,
+                buttonNegative: 'Cancel',
+                buttonPositive: 'OK',
+            },
+        );
 
-//         if (granted === PermissionsAndroid.RESULTS.GRANTED) {
-//             return new Promise((resolve, reject) => {
-//                 Geolocation.getCurrentPosition(position => {
-//                     resolve(position)
-//                 });
-//             })
-//         }
+        if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+            return new Promise((resolve, reject) => {
+                Geolocation.getCurrentPosition(position => {
+                    resolve(position)
+                });
+            })
+        }
 
-//     } catch (err) {
-//         console.warn(err);
-//     }
+    } catch (err) {
+        console.warn(err);
+    }
 
 
-// }
+}
 
 
 export function camelize(str: string) {

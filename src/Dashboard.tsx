@@ -25,7 +25,7 @@ type ToDoType = {
 
 const DashBoard = () => {
     const [searchQuery, setSearchQuery] = useState<any>("");
-    const [taskModal, setTaskModal] = useState(false);
+    const [taskModal, setTaskModal] = useState(true);
     const [loading, setLoading] = useState(false);
     const [todos, setTodos] = useState<ToDoType[]>([]);
     const [oldTodos, setOldTodos] = useState<ToDoType[]>([]);
@@ -101,7 +101,7 @@ const DashBoard = () => {
                 .then(({ data }) => {
                     const { userList } = data;
                     setAgents(userList)
-                    // console.log(userList);
+                    console.log(userList);
                 })
         } catch (error) {
             console.log(error);

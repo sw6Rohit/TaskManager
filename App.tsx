@@ -1,6 +1,5 @@
 import React, { } from 'react';
 
-
 import { navigationRef } from './src/navigation/RootNavigation';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -13,29 +12,17 @@ import DashboardSummary from './src/screens/DashboardSummary';
 
 const Stack = createNativeStackNavigator();
 const App = () => {
-
-
-  // useEffect(() => {
-  //   onSearch(searchQuery);
-  // }, []);
-
   return (
     <NavigationContainer ref={navigationRef}>
       <Stack.Navigator initialRouteName="Login" screenOptions={{ headerShown: false, animation: 'fade_from_bottom', }}>
-
         <Stack.Screen name="DashBoard" component={DashboardSummary} />
+        <Stack.Screen name="DashBoardC" component={DashBoard} />
         <Stack.Screen name="Login" component={Login} />
         <Stack.Screen name="TaskSummary" component={TaskSummary} />
         <Stack.Screen name="AttendanceScreen" component={AttendanceScreen} />
       </Stack.Navigator>
       <FlashMessage position="top" />
     </NavigationContainer>
-
   );
 };
-
-
-
-
-
 export default App;

@@ -33,11 +33,7 @@ const TaskSummary = () => {
   return (
     <View style={styles.container}>
       {/* Attendance Section */}
-      <View style={styles.attendanceContainer}>
-      <AttendanceStatCard label="Present" count="13" color="#4CAF50" bgColor="#E8F5E9" />
-      <AttendanceStatCard label="Absents" count="02" color="#F44336" bgColor="#FFEBEE" />
-      <AttendanceStatCard label="Late in" count="04" color="#FF9800" bgColor="#FFF3E0" />
-    </View>
+    
 
       {/* Filter Tabs */}
       <View style={styles.filters}>

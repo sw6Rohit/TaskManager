@@ -4,6 +4,7 @@ export default {
 
     LOGIN:'login',
     LOGOUT:'fieldagent-logout',
+    savecapture:'/savecapture',
     ADD_TASK:'/task/createtask',
     GET_TASK:'/task/by-daterange',
     GET_PROJECTLIST:'/taskmaster/view',
