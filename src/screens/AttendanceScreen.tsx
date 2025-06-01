@@ -24,6 +24,7 @@ import NetInfo from '@react-native-community/netinfo';
 import DeviceInfo from 'react-native-device-info';
 import { useSelector } from 'react-redux';
 import { RootState } from '../redux/store';
+import BackButton from '../components/BackButton';
 
 
 const AttendanceScreen = () => {
@@ -46,6 +47,7 @@ const AttendanceScreen = () => {
   const [ipAddress, setIpAddress] = useState<string | null>(null);
 
   useEffect(() => {
+    console.log(user);
     const fetchIPAddress = async () => {
       const state = await NetInfo.fetch();
       console.log('Network Info:', state);
@@ -53,7 +55,6 @@ const AttendanceScreen = () => {
     };
 
     fetchIPAddress();
-    console.log(user);
     
   }, []);
 
@@ -135,21 +136,20 @@ const AttendanceScreen = () => {
   "Laungitude":  coords?.longitude.toString(),
   "PUNCH": "IN",
   "uid": user?.userInfo?.AgentId,
-  "ip": deviceId,
-  "email": "test@example.com",
+  "ip": "192.168.1.50",
+  "email": "sw6@atm.edu.in",
   "TimeScheduleId": 1
 }
-console.log(param);
-navigation.goBack()
+// console.log(param);
     setPhotoPath(null);
 
 
-      await axiosRequest(Url.savecapture, Constant.API_REQUEST_METHOD.POST, param)
+      await axiosRequest('http://61.246.33.108:8069/savecapture', Constant.API_REQUEST_METHOD.POST, param)
         .then(({ data }) => {
           console.log(data);
           
           if (data) {
-            showMessage({ message: data?.message, type: 'success' });
+            showMessage({ message: "Attendance marked Successfully", type: 'success' });
             navigation.goBack();
           } else {
             showMessage({ message: data?.message, type: 'danger' });
@@ -166,6 +166,7 @@ navigation.goBack()
     <SafeAreaView style={styles.container}>
       {/* Tabs */}
       {isCameraReady ? <>
+      <BackButton/>
         <View style={styles.tabWrapper}>
 
           <View style={styles.tabBackground}>

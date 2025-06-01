@@ -22,6 +22,8 @@ import moment from 'moment';
 import { axiosRequest } from './utils/ApiRequest';
 import Url from './utils/Url';
 import Constant from './utils/Constant';
+import { useSelector } from 'react-redux';
+import { RootState } from './redux/store';
 
 const AddTaskForm = ({ onSubmit, onClose }: any) => {
   const [showDescription, setShowDescription] = useState(false);
@@ -36,6 +38,7 @@ const AddTaskForm = ({ onSubmit, onClose }: any) => {
   const [selectedNode, setselectedNode] = useState(null);
   const [selectedPoint, setSelectedPoint] = useState({});
   const [showDateMenu, setShowDateMenu] = useState(false);
+  const {projectList,userList} = useSelector((state: RootState) => state.user.taskMaster);
   const [showRepeatMenu, setShowRepeatMenu] = useState(false);
   const [isAllDay, setIsAllDay] = useState(false);
   const [repeatMenus, setRepeatMenus] = useState([
@@ -373,7 +376,12 @@ const AddTaskForm = ({ onSubmit, onClose }: any) => {
                 <Text style={styles.linkText}>Project Name -</Text>
               </TouchableOpacity>
               <DropdownModal
-                data={items2}
+                data={projectList.map((item:any)=>{
+                 return{
+                   label:item?.projectName,
+                  value:item?.projectId,
+                 }
+                })}
                 value={values.p_name}
                 onSelect={(val: any) => setFieldValue('p_name', val.value)}
               />
@@ -384,7 +392,12 @@ const AddTaskForm = ({ onSubmit, onClose }: any) => {
 
             <Text style={styles.label}>Assigned To</Text>
             <DropdownModal
-              data={items}
+               data={userList.map((item:any)=>{
+                 return{
+                   label:item?.AgentName,
+                  value:item?.AgentId,
+                 }
+                })}
               value={values.assignedTo}
               onSelect={(val: any) => setFieldValue('assignedTo', val.value)}
             />

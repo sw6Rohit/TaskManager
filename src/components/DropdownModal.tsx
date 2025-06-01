@@ -3,6 +3,7 @@ import {
   Modal,
   View,
   Text,
+  TextInput,
   TouchableOpacity,
   FlatList,
   StyleSheet,
@@ -12,15 +13,21 @@ import {
 
 const { height: screenHeight } = Dimensions.get('window');
 
-const DropdownModal = ({ data, onSelect }:any) => {
+const DropdownModal = ({ data, onSelect }: any) => {
   const [visible, setVisible] = useState(false);
   const [selected, setSelected] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  const handleSelect = (item:any) => {
+  const handleSelect = (item: any) => {
     setSelected(item);
     onSelect?.(item);
+    setSearchQuery('');
     setVisible(false);
   };
+
+  const filteredData = data.filter((item: any) =>
+    item.label?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <View>
@@ -44,17 +51,28 @@ const DropdownModal = ({ data, onSelect }:any) => {
         </TouchableWithoutFeedback>
 
         <View style={styles.bottomSheet}>
+          {/* Search Input */}
+          <TextInput
+            placeholder="Search..."
+            style={styles.searchInput}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+
           <FlatList
-            data={data}
-            keyExtractor={(item) => item.value.toString()}
+            data={filteredData}
+            keyExtractor={(item) => item?.value?.toString()}
             renderItem={({ item }) => (
               <TouchableOpacity
                 style={styles.item}
                 onPress={() => handleSelect(item)}
               >
-                <Text style={styles.itemText}>{item.label}</Text>
+                <Text style={styles.itemText}>{item?.label}</Text>
               </TouchableOpacity>
             )}
+            ListEmptyComponent={
+              <Text style={styles.emptyText}>No items found</Text>
+            }
           />
         </View>
       </Modal>
@@ -66,23 +84,30 @@ const styles = StyleSheet.create({
   dropdownButton: {
     padding: 12,
     backgroundColor: '#fff',
-    borderWidth:0.3,
+    borderWidth: 0.3,
     borderRadius: 8,
   },
   buttonText: {
     fontSize: 16,
-    color:'gray'
+    color: 'gray',
   },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',
   },
   bottomSheet: {
-    height: screenHeight * 0.33,
+    height: screenHeight * 0.5,
     backgroundColor: '#fff',
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     padding: 12,
+  },
+  searchInput: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 10,
   },
   item: {
     padding: 12,
@@ -91,6 +116,11 @@ const styles = StyleSheet.create({
   },
   itemText: {
     fontSize: 16,
+  },
+  emptyText: {
+    textAlign: 'center',
+    marginTop: 20,
+    color: 'gray',
   },
 });
 

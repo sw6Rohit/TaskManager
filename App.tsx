@@ -9,6 +9,8 @@ import FlashMessage from 'react-native-flash-message';
 import AttendanceScreen from './src/screens/AttendanceScreen';
 import TaskSummary from './src/screens/TaskSummary';
 import DashboardSummary from './src/screens/DashboardSummary';
+import AttendanceHistory from './src/screens/AttendanceHistory';
+import StudentList from './src/screens/StudentList';
 
 const Stack = createNativeStackNavigator();
 const App = () => {
@@ -20,6 +22,8 @@ const App = () => {
         <Stack.Screen name="Login" component={Login} />
         <Stack.Screen name="TaskSummary" component={TaskSummary} />
         <Stack.Screen name="AttendanceScreen" component={AttendanceScreen} />
+        <Stack.Screen name="AttendanceHistory" component={AttendanceHistory} />
+        <Stack.Screen name="StudentList" component={StudentList} />
       </Stack.Navigator>
       <FlashMessage position="top" />
     </NavigationContainer>

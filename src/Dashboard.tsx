@@ -151,7 +151,7 @@ const DashBoard = () => {
             "taskFilePath": ""
         }
 
-        await axiosRequest('Url.ADD_TASK', Constant.API_REQUEST_METHOD.POST, param)
+        await axiosRequest(Url.ADD_TASK, Constant.API_REQUEST_METHOD.POST, param)
             .then(({ data }) => {
                 console.log(data);
 

@@ -15,6 +15,9 @@ import NetInfo from '@react-native-community/netinfo';
 import Colors from './Colors';
 import Geolocation from '@react-native-community/geolocation';
 
+import { NativeModules } from 'react-native';
+
+const { LocationModule } = NativeModules;
 
 export const checkConnection=()=> {
     NetInfo.fetch().then(state => {
@@ -130,7 +133,15 @@ export async function findCoordinates() {
 
 
 }
-
+export async function getAddressFromLatLng(lat:any, lng:any) {
+  try {
+    const result = await LocationModule.getAddressFromCoordinates(lat, lng);
+    return result;
+  } catch (err) {
+    console.error('Error getting address:', err);
+    return null;
+  }
+}
 
 export function camelize(str: string) {
     console.log('str---------------');
