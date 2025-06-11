@@ -112,7 +112,7 @@ const Login: React.FC = () => {
                         {({ handleChange, handleBlur, handleSubmit, values, errors, touched }) => (
                             <Animated.View style={styles.inputContainer}>
                                 <TextInput
-                                    placeholder="Please enter mobile no"
+                                    placeholder="Please enter Email Id/ mobile no"
                                     style={styles.input}
                                     value={values.User_Email_Id}
                                     onChangeText={handleChange('User_Email_Id')}

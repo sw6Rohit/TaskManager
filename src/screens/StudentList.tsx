@@ -2,6 +2,11 @@
 import React, { useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, Modal, Alert } from 'react-native';
 import AddStudent from './AddStudent';
+import Constant from '../utils/Constant';
+import { axiosRequest } from '../utils/ApiRequest';
+import { useSelector } from 'react-redux';
+import { RootState } from '../redux/store';
+import { useNavigation } from '@react-navigation/native';
 
 
 const initialStudents = [
@@ -12,7 +17,8 @@ const initialStudents = [
 const StudentList = () => {
   const [students, setStudents] = useState(initialStudents);
   const [showForm, setShowForm] = useState(false);
-
+       const {userInfo,taskMaster} = useSelector((state: RootState) => state?.user);
+const navigation =useNavigation()
   const handleAddStudent = (newData) => {
     const newStudent = {
       id: Date.now().toString(),
@@ -23,6 +29,91 @@ const StudentList = () => {
     setStudents([...students, newStudent]);
     setShowForm(false);
   };
+  const saveStudent=async (params:any)=>{
+    console.log(params);
+  const param={
+  "UserID": userInfo?.AgentId,
+  "FirstName": params?.firstName,
+  "FathersName": params?.F_firstName,
+  "MothersName": "",
+  "Gender": params?.gender,
+  "DOB": "1992-05-15T00:00:00",
+  "CasteCategortyId": 2,
+  "RefID": null,
+  "CompaignID": 10,
+  "SubCompaignID": 5,
+  "LeadStatusID": 30,
+  "CollegeId": null,
+  "AssignedUserId": null,
+  "InstitutionID": 4,
+  "CommentId": null,
+  "ExamID": null,
+  "Examscore": null,
+  "Status": "1",
+  "Archive": false,
+  "BestCallTime": null,
+  "CreationDate": "2020-09-13T00:00:00",
+  "ModifyDate": "2020-09-14T00:00:00",
+  "Family_Income": 300000,
+  "Qualification": "Graduate",
+  "Stream": "Commerce",
+  "WorkExperience": "2 years",
+  "Cand_App_ID": null,
+  "Heard_About_DDUGKY_Details": "Newspaper",
+  "Registered_By": "admin",
+  "Registration_Type": "Walk-in",
+  "Training_Status": "Not started",
+  "Verification_Status": "Pending",
+  "CourseTypeId": 1,
+  "CourseId": 25,
+  "Remarks": "Looking for EPBA Only",
+  "FollowDate": null,
+  "FcampaignID": 37,
+  "FUser": 3,
+  "Mobile_Personal": params?.mobile1,
+  "Mobile_Work": null,
+  "Mobile_Home": null,
+  "FCourseID": 25,
+  "Email_Personal": params?.email,
+  "Email_Work": null,
+  "Email_Home": null,
+  "PortalID": "L905598",
+  "LeadHistoryID": null,
+  "SalesPipelineID": 2,
+  "ChangeUserFlag": null,
+  "LeadProcessFlag": null,
+  "LeadProcessDate": null,
+  "RoleID": null,
+  "City": "Delhi",
+  "LeadInsertionDate": "2020-09-13T00:00:00",
+  "PoolFlag": false,
+  "SocialMediaFlag": false,
+  "Mobile_Whatsup": "8447689848",
+  "DataInsertSource": "Portal",
+  "ActionTakenByLastUser": null,
+  "VisitCount": 0,
+  "LastVisitDate": null,
+  "LastVisitSource": null
+}
+
+   await axiosRequest('http://61.246.33.108:8069/savelead', Constant.API_REQUEST_METHOD.POST, param)
+          .then(({ data }) => {
+            console.log(data);
+  
+            if (data) {
+              // showMessage({ message: "Record Saved Successfully", type: 'success' });
+              navigation.navigate('TakePicture')
+              // Alert.alert("Record Saved Successfully")
+              // navigation.goBack();
+            } else {
+              // showMessage({ message: data?.message, type: 'danger' });
+              // addOfflinePic(param);
+            }
+          })
+          .catch(() => {
+            // addOfflinePic(param);
+          });
+}
 
   const handleDelete = (id) => {
     Alert.alert('Confirm Delete', 'Are you sure you want to delete this student?', [
@@ -64,7 +155,7 @@ const StudentList = () => {
 
       <Modal visible={showForm} animationType="slide">
         <AddStudent
-          onSubmit={handleAddStudent}
+          onSubmit={saveStudent}
           onCancel={() => setShowForm(false)}
         />
       </Modal>

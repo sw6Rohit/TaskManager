@@ -21,30 +21,42 @@ export default function AttendanceHistory() {
   const [loading, setLoading] = useState<boolean>(false);
   const user = useSelector((state: RootState) => state?.user);
   const [selectedMonth, setSelectedMonth] = useState({
-    value:  moment().month(),});
+    value:  moment().month() + 1,
+  });
+  const currentYear = moment().year();
+  const yearOptions = Array.from({ length: 10 }, (_, i) => ({
+    label: (currentYear - i).toString(),
+    value: currentYear - i,
+  }));
+
+  const [selectedYear, setSelectedYear] = useState({
+    value: currentYear,
+  });
+
 
   const monthOptions = Array.from({ length: 12 }, (_, i) => ({
     label: moment().month(i).format('MMMM'),
     value: i + 1,
   }));
 
-  console.log(selectedMonth);
-  
+  // console.log(selectedMonth);
+
 
 
   useEffect(() => {
-    getAttendanceList();
+    getAttendanceList(selectedMonth, selectedYear);
   }, []);
 
-  const getAttendanceList = async (month: any = selectedMonth) => {
+  const getAttendanceList = async (month: any = selectedMonth, year: any = selectedYear) => {
     try {
-      setSelectedMonth(month)
-      setLoading(true)
-      const currentYear = moment().year();
+      setSelectedMonth(month);
+      setSelectedYear(year);
+      setLoading(true);
+
       const param = {
         UserId: user?.userInfo?.AgentId,
         Month: month?.value,
-        Year: currentYear,
+        Year: year?.value,
       };
       const { data } = await axiosRequest(
         'http://61.246.33.108:8069/api/attendance/getreport',
@@ -52,6 +64,8 @@ export default function AttendanceHistory() {
         param
       );
 
+      // console.log(data);
+      
       if (data) {
         const structuredData = await Promise.all(
           data.map(async (item: any) => {
@@ -86,15 +100,17 @@ export default function AttendanceHistory() {
     if (splitIndex === -1) {
       return null;
     }
-
+    
+    
     const lon = parseFloat(coordString.slice(0, splitIndex));
     const lat = parseFloat(coordString.slice(splitIndex + 1));
+    // console.log(coordString,lat,lon);
 
     if (isNaN(lon) || isNaN(lat)) {
       return null;
     }
     try {
-      const { fullAddress } = await getAddressFromLatLng(28.693949, 77.171826);
+      const { fullAddress } = await getAddressFromLatLng(lat, lon);
       return fullAddress;
     } catch (e) {
       console.warn("Address fetch failed:", e);
@@ -156,17 +172,24 @@ export default function AttendanceHistory() {
     <SafeAreaView style={styles.container}>
       <View style={styles.headerRow}>
         <Text style={styles.header}>Attendance Of {user?.userInfo?.AgentName}</Text>
-        
+
       </View>
-      <View style={{flexDirection:'row'}}>
-        <Text style={{fontSize:24}}>Month: </Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+        <Text style={{ fontSize: 18, marginRight: 8 }}>Month:</Text>
         <DropdownModal
           data={monthOptions}
           value={selectedMonth}
+          onSelect={(item: any) => getAttendanceList({ value: item.value }, selectedYear)}
+        />
 
-          onSelect={(item: any) => getAttendanceList({value:item.value})}
+        <Text style={{ fontSize: 18, marginLeft: 16, marginRight: 8 }}>Year:</Text>
+        <DropdownModal
+          data={yearOptions}
+          value={selectedYear}
+          onSelect={(item: any) => getAttendanceList(selectedMonth, { value: item.value })}
         />
       </View>
+
 
       <FlatList
         refreshing={loading}
@@ -181,7 +204,7 @@ export default function AttendanceHistory() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: '#f9f9f9',marginTop:10 },
+  container: { flex: 1, padding: 16, backgroundColor: '#f9f9f9', marginTop: 10 },
   header: {
     fontSize: 22,
     fontWeight: 'bold',

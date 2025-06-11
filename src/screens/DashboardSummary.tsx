@@ -1,6 +1,6 @@
 import { useNavigation } from '@react-navigation/native';
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, FlatList } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, FlatList, Image } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { axiosRequest } from '../utils/ApiRequest';
 import Url from '../utils/Url';
@@ -10,6 +10,7 @@ import { RootState } from '../redux/store';
 import moment from 'moment';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { setTaskMaster } from '../redux/slices/userSlice';
+import { findCoordinates } from '../utils/Helper';
 
 
 
@@ -17,10 +18,11 @@ export default function DashboardSummary() {
   const user = useSelector((state: RootState) => state?.user);
   const taskMaster = useSelector((state: RootState) => state.user.taskMaster);
   const navigation = useNavigation();
-  const dispatch=useDispatch();
+  const dispatch = useDispatch();
   useEffect(() => {
     getProjectList();
     getAttendanceList();
+    getDistancefromOffice();
   }, [])
   const getProjectList = async () => {
     try {
@@ -30,7 +32,7 @@ export default function DashboardSummary() {
       };
       await axiosRequest(Url.GET_PROJECTLIST, Constant.API_REQUEST_METHOD.POST, param)
         .then(({ data }) => {
-           dispatch(setTaskMaster(data));
+          dispatch(setTaskMaster(data));
           // console.log(data);
         })
     } catch (error) {
@@ -57,6 +59,41 @@ export default function DashboardSummary() {
       console.log(error);
     }
   };
+
+  const getDistancefromOffice = async () => {
+    const userLocation: any = await findCoordinates().then(async (coordinates: any) => {
+      console.log(coordinates?.coords);
+
+      const distance = getDistanceFromLatLonInKm(
+        coordinates?.coords.latitude,
+        coordinates?.coords.longitude,
+        28.693722,
+        77.171779
+      );
+      console.log(distance); // or setState
+      // setCampaign(campaignWithDistance)
+      // return campaignWithDistance;
+    })
+
+
+  };
+
+  function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
+    const R = 6371; // Radius of the Earth in km
+    const dLat = deg2rad(lat2 - lat1);
+    const dLon = deg2rad(lon2 - lon1);
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(deg2rad(lat1)) *
+      Math.cos(deg2rad(lat2)) *
+      Math.sin(dLon / 2) ** 2;
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }
+
+  function deg2rad(deg: number) {
+    return deg * (Math.PI / 180);
+  }
 
   const AttendanceRow = ({ date, day, inTime, outTime, total, location }) => (
     <View style={styles.attendanceRow}>
@@ -110,37 +147,48 @@ export default function DashboardSummary() {
     </TouchableOpacity>
   );
   const requestData = [
-  { id: '1', count: '04', label: 'Leave\nRequest', color: '#3478F6' },
-  { id: '2', count: '12', label: 'Claim\nRequest', color: '#22C55E' },
-  { id: '3', count: '01', label: 'Other\nRequest', color: '#FB923C' },
-];
+    { id: '1', count: '04', label: 'Leave\nRequest', color: '#3478F6' },
+    { id: '2', count: '12', label: 'Claim\nRequest', color: '#22C55E' },
+    { id: '3', count: '01', label: 'Other\nRequest', color: '#FB923C' },
+  ];
 
-const RequestCard = ({ count, label, color }: any) => (
-  <View style={styles.card1}>
-    <View style={[styles.countBox, { backgroundColor: color }]}>
-      <Text style={styles.countText}>{count}</Text>
+  const RequestCard = ({ count, label, color }: any) => (
+    <View style={styles.card1}>
+      <View style={[styles.countBox, { backgroundColor: color }]}>
+        <Text style={styles.countText}>{count}</Text>
+      </View>
+      <Text style={styles.labelText}>{label}</Text>
     </View>
-    <Text style={styles.labelText}>{label}</Text>
-  </View>
-);
-const cardData = [
-  { id: '1', label: 'Attendance', icon: 'calendar-check', color: '#2563EB',nav:'AttendanceHistory' },
-  { id: '2', label: 'Track Leave', icon: 'calendar-remove', color: '#DC2626',nav:'StudentList' },
-  { id: '3', label: 'Payroll', icon: 'checkbook', color: '#D97706',nav:'' },
-];
+  );
+  const cardData = [
+    { id: '1', label: 'Attendance', icon: 'calendar-check', color: '#2563EB', nav: 'AttendanceHistory' },
+    { id: '2', label: 'Lead Entry', icon: 'calendar-remove', color: '#DC2626', nav: 'StudentList' },
+    { id: '3', label: 'Payroll', icon: 'checkbook', color: '#D97706', nav: '' },
+  ];
 
-const IconCard = ({ icon, label, color,nav }: any) => (
-  <TouchableOpacity style={[styles.card3, { borderColor: color }]} 
-  onPress={() => navigation.navigate(nav)}>
-    <MaterialCommunityIcons name={icon} size={30} color={color} />
-    <Text style={styles.label3}>{label} </Text>
-  </TouchableOpacity>
-);
+  const IconCard = ({ icon, label, color, nav }: any) => (
+    <TouchableOpacity style={[styles.card3, { borderColor: color }]}
+      onPress={() => navigation.navigate(nav)}>
+      <MaterialCommunityIcons name={icon} size={30} color={color} />
+      <Text style={styles.label3}>{label} </Text>
+    </TouchableOpacity>
+  );
   return (
     <ScrollView style={styles.container}>
       <StatusBar hidden={true} />
-      <Text style={styles.welcomeText}>Welcome, {user?.userInfo?.AgentName || 'Guest'}</Text>
-      <Text style={styles.header}>Dashboard</Text>
+      <View style={styles.headerContainer}>
+        <View>
+          <Text style={styles.welcomeText}>Welcome, {user?.userInfo?.AgentName || 'Guest'}</Text>
+          <Text style={styles.header}>Dashboard</Text>
+        </View>
+        <TouchableOpacity onPress={() => navigation.navigate("UserProfile")}>
+          <Image
+            source={{ uri: "https://xsgames.co/randomusers/avatar.php?g=male" }}
+            style={styles.profileImage}
+          />
+        </TouchableOpacity>
+      </View>
+
       <View style={styles.attendanceContainer}>
         <AttendanceStatCard label="Present" count="13" color="#4CAF50" bgColor="#E8F5E9" />
         <AttendanceStatCard label="Absents" count="02" color="#F44336" bgColor="#FFEBEE" />
@@ -149,9 +197,9 @@ const IconCard = ({ icon, label, color,nav }: any) => (
 
       <View style={[styles.card, { width: '100%' }]}>
         <View style={styles.headerRow}>
-          <View style={{flexDirection:'column'}}>
+          <View style={{ flexDirection: 'column' }}>
             <Text style={styles.title}>Today's Attendance</Text>
-        <Text style={styles.date}>Monday, 21 Jan 2023</Text>
+            <Text style={styles.date}>Monday, 21 Jan 2023</Text>
           </View>
           < View style={{ flexDirection: 'column' }}>
 
@@ -215,37 +263,56 @@ const IconCard = ({ icon, label, color,nav }: any) => (
         <SummaryCard label="Rejected" count="45" color="#66BB6A" />
       </View>
       <FlatList
-      data={cardData}
-      horizontal
-      keyExtractor={(item) => item.id}
-      contentContainerStyle={styles.container}
-      renderItem={({ item }) => (
-        <IconCard icon={item.icon} label={item.label} color={item.color} nav={item?.nav}/>
-      )}
-    />  
+        data={cardData}
+        horizontal
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.container}
+        renderItem={({ item }) => (
+          <IconCard icon={item.icon} label={item.label} color={item.color} nav={item?.nav} />
+        )}
+      />
 
-       <FlatList
-      data={requestData}
-      horizontal
-      keyExtractor={(item) => item.id}
-      contentContainerStyle={styles.container1}
-      
-      renderItem={({ item }) => (
-        <RequestCard count={item.count} label={item.label} color={item.color} />
-      )}
-    />
+      <FlatList
+        data={requestData}
+        horizontal
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.container1}
+
+        renderItem={({ item }) => (
+          <RequestCard count={item.count} label={item.label} color={item.color} />
+        )}
+      />
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  headerContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-    paddingHorizontal: 8,
-  },
+ headerContainer: {
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  paddingHorizontal: 20,
+  marginTop: 10,
+},
+
+profileImage: {
+  width: 40,
+  height: 40,
+  borderRadius: 20,
+},
+
+welcomeText: {
+  fontSize: 16,
+  color: '#333',
+},
+
+header: {
+  fontSize: 22,
+  fontWeight: 'bold',
+  color: '#000',
+  marginTop: 4,
+},
+
 
   subHeader: {
     fontSize: 20,
@@ -258,18 +325,17 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: 20,
-    margin:5
+    margin: 5
   },
 
   requestText: {
     color: '#fff',
     fontWeight: '600',
     fontSize: 14,
-    textAlignVertical:'center'
+    textAlignVertical: 'center'
   },
 
-  container: { flex: 1, padding: 16, backgroundColor: '#f9f9f9',marginBottom:50 },
-  header: { fontSize: 24, fontWeight: 'bold', marginBottom: 10 },
+  container: { flex: 1, padding: 16, backgroundColor: '#f9f9f9', marginBottom: 50 },
 
   summaryGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   card: {
@@ -388,13 +454,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     marginVertical: 15,
   },
-  welcomeText: {
-    fontSize: 16,
-    color: '#333',
-    fontWeight: '500',
-    marginBottom: 6,
-  },
-   countBox: {
+  countBox: {
     width: 36,
     height: 36,
     borderRadius: 8,
@@ -412,7 +472,7 @@ const styles = StyleSheet.create({
     color: '#000',
     lineHeight: 18,
   },
-   container1: {
+  container1: {
     padding: 16,
   },
   card1: {
@@ -428,7 +488,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
 
-   card3: {
+  card3: {
     width: 100,
     height: 100,
     backgroundColor: '#fff',

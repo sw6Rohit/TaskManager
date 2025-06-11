@@ -33,7 +33,7 @@ const BackButton: React.FC<BackButtonProps> = ({
   return (
     <TouchableOpacity onPress={handlePress} style={[styles.button, style]}>
       <Ionicons name="arrow-back" size={iconSize} color={iconColor} />
-      <Text style={[styles.text, textStyle]}>{label}</Text>
+      {/* <Text style={[styles.text, textStyle]}>{label}</Text> */}
     </TouchableOpacity>
   );
 };

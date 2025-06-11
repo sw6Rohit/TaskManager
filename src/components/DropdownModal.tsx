@@ -13,7 +13,7 @@ import {
 
 const { height: screenHeight } = Dimensions.get('window');
 
-const DropdownModal = ({ data, onSelect }: any) => {
+const DropdownModal = ({ data, onSelect,placeholder='Select' }: any) => {
   const [visible, setVisible] = useState(false);
   const [selected, setSelected] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -36,7 +36,7 @@ const DropdownModal = ({ data, onSelect }: any) => {
         onPress={() => setVisible(true)}
       >
         <Text style={styles.buttonText}>
-          {selected ? selected.label : 'Select'}
+          {selected ? selected.label : placeholder}
         </Text>
       </TouchableOpacity>
 

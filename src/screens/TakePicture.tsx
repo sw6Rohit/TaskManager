@@ -35,7 +35,7 @@ import CustomSuccessAlert from '../components/CustomSuccessAlert';
 const { TimestampImage } = NativeModules;
 
 
-const AttendanceScreen = () => {
+const TakePicture = () => {
   const [currentTime, setCurrentTime] = useState(moment().format('hh : mm : ss A'));
   const [hasPermission, setHasPermission] = useState(false);
   const [selectedTab, setSelectedTab] = useState<'Home' | 'Office'>('Home');
@@ -343,7 +343,7 @@ const AttendanceScreen = () => {
                     />
                   </View>
                   <TouchableOpacity style={styles.captureButton} onPress={capturePhoto}>
-                    <Text style={styles.controlIcon}>📸 {'Mark Attendance'}</Text>
+                    <Text style={styles.controlIcon}>📸 {'Take Picture'}</Text>
                   </TouchableOpacity>
                 </>
               )}
@@ -353,7 +353,7 @@ const AttendanceScreen = () => {
             <View style={[styles.card, { marginBottom: insets.bottom + 10 }]}>
               <View style={styles.header}>
                 <View>
-                  <Text style={styles.title}>📖 Attendance</Text>
+                  <Text style={styles.title}>📖 Take Picture</Text>
                   <Text style={styles.time}>{currentTime}</Text>
                   <Text style={styles.date}>{moment().format('llll')}</Text>
                 </View>
@@ -402,7 +402,7 @@ const AttendanceScreen = () => {
   );
 };
 
-export default AttendanceScreen;
+export default TakePicture;
 
 const styles = StyleSheet.create({
   container: {
