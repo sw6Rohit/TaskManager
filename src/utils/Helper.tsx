@@ -138,10 +138,27 @@ export async function getAddressFromLatLng(lat:any, lng:any) {
     const result = await LocationModule.getAddressFromCoordinates(lat, lng);
     return result;
   } catch (err) {
-    console.error('Error getting address:', err);
+    // console.error('Error getting address:', err);
     return null;
   }
 }
+
+export  function getDistanceFromLatLonInMeter(lat1: number, lon1: number, lat2: number, lon2: number) {
+    const R = 6371; // Radius of the Earth in km
+    const dLat = deg2rad(lat2 - lat1);
+    const dLon = deg2rad(lon2 - lon1);
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(deg2rad(lat1)) *
+      Math.cos(deg2rad(lat2)) *
+      Math.sin(dLon / 2) ** 2;
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c * 1000;
+  }
+
+ export function deg2rad(deg: number) {
+    return deg * (Math.PI / 180);
+  }
 
 export function camelize(str: string) {
     console.log('str---------------');

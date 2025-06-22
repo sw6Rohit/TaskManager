@@ -25,7 +25,7 @@ const DropdownModal = ({ data, onSelect,placeholder='Select' }: any) => {
     setVisible(false);
   };
 
-  const filteredData = data.filter((item: any) =>
+  const filteredData = data?.filter((item: any) =>
     item.label?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 

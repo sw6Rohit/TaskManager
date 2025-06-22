@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ImageBackground, StyleSheet, Alert, ActivityIndicator, StatusBar, Dimensions, Animated, Image } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ImageBackground, StyleSheet, Alert, ActivityIndicator, StatusBar, Dimensions, Animated, Image, Platform, PermissionsAndroid, Linking } from 'react-native';
 
 import { Formik } from 'formik';
 import * as Yup from 'yup';
@@ -14,6 +14,9 @@ import { axiosRequest } from '../utils/ApiRequest';
 import Constant from '../utils/Constant';
 import Url from '../utils/Url';
 import { showMessage } from 'react-native-flash-message';
+import Geolocation from '@react-native-community/geolocation';
+import { findCoordinates, getDistanceFromLatLonInMeter } from '../utils/Helper';
+import DeviceInfo from 'react-native-device-info';
 
 const LoginSchema = Yup.object().shape({
     User_Email_Id: Yup.string().required('Mobile No is required'),
@@ -28,6 +31,7 @@ const Login: React.FC = () => {
 
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [isWithinRadius, setIsWithinRadius] = useState<any>(false);
     const width = Dimensions.get("screen").width;
     const [state, setValueState] = useState({
         typing_email: false,
@@ -41,9 +45,134 @@ const Login: React.FC = () => {
     const user = useSelector((state: RootState) => state?.user);
 
     useEffect(() => {
-        if(user?.userInfo)
-            navigation.navigate('DashBoard', {});
+        checkGPSStatus();
+        getGeofence();
     }, [user]);
+
+    const checkGPSStatus = async () => {
+        if (Platform.OS === 'android') {
+            const granted = await PermissionsAndroid.request(
+                PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+                {
+                    title: 'Location Permission Required',
+                    message: 'This app needs to access your location to proceed.',
+                    buttonNeutral: 'Ask Me Later',
+                    buttonNegative: 'Cancel',
+                    buttonPositive: 'OK',
+                }
+            );
+
+            if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+                Alert.alert('Permission Denied', 'Location permission is required.');
+                return;
+            }
+        }
+
+        Geolocation.getCurrentPosition(
+            (position) => {
+                // console.log('GPS is ON', isWithinRadius);
+                // if (isWithinRadius && !isWithinRadius[0]?.isWithinRadius) {
+                //     showMessage({ message: 'You are not inside the office location.', type: 'danger' });
+                //     setLoading(false)
+                // }
+                // else
+
+                if (user?.userInfo && position) {
+                    if (user?.userInfo?.apkversion != DeviceInfo.getVersion()) {
+                        console.log(user?.userInfo, DeviceInfo.getVersion());
+
+                        Alert.alert(
+                            "Update Required",
+                            "Please install the latest version of the app to continue.",
+                            [
+                                {
+                                    text: "OK",
+                                    onPress: () => Linking.openURL('https://appho.st/d/KIwfhe1v'), // Replace with your actual update link
+                                },
+                            ],
+                            { cancelable: false }
+                        );
+                    }
+                    else {
+                        showMessage({ message: 'Login Successfully', type: 'success' });
+                        navigation.navigate('DashBoard', {});
+                    }
+                }
+            },
+            (error) => {
+                console.log('GPS Error:', error);
+                if (error.code === 2) {
+                    Alert.alert(
+                        'GPS is Off',
+                        'Please enable GPS to continue.',
+                        [
+                            {
+                                text: 'Open Settings',
+                                onPress: () => {
+                                    Linking.openSettings(); // Takes user to app settings
+                                },
+                            },
+                            {
+                                text: 'Cancel',
+                                style: 'cancel',
+                            },
+                        ],
+                        { cancelable: false }
+                    );
+
+                }
+            },
+            {
+                enableHighAccuracy: false,
+                timeout: 5000,
+                maximumAge: 0,
+            }
+        );
+    };
+
+    const getGeofence = async () => {
+        await axiosRequest(`http://61.246.33.108:8069/api/geofencesbyid?ids=${user.userInfo?.geofence}`, Constant.API_REQUEST_METHOD.GET)
+            .then(async ({ data }) => {
+                if (data) {
+
+                    try {
+                        const coordinates: any = await findCoordinates();
+
+                        const currentLat = Number(coordinates?.coords?.latitude?.toFixed(6));
+                        const currentLon = Number(coordinates?.coords?.longitude?.toFixed(6));
+
+                        const results = data.map((office) => {
+                            const dist = getDistanceFromLatLonInMeter(
+                                currentLat,
+                                currentLon,
+                                office.Latitude,
+                                office.Longitude
+                            );
+
+                            return {
+                                ...office,
+                                distance: dist,
+                                isWithinRadius: dist <= office.Radius,
+                            };
+                        });
+
+
+                        // Optionally filter to just those within radius
+                        const withinRadius = results.filter((r) => r.isWithinRadius);
+                        //   const sorted = results.sort((a, b) => a.distance - b.distance);
+                        setIsWithinRadius(withinRadius)
+
+                        return withinRadius;
+                    } catch (error) {
+                        console.error('Error getting distance:', error);
+                    }
+                } else {
+                }
+            })
+            .catch(() => {
+            });
+    }
+
 
 
 
@@ -59,9 +188,8 @@ const Login: React.FC = () => {
             .then(({ data }) => {
                 if (data) {
                     setLoading(false)
-                    showMessage({ message: 'Login Successfully', type: 'success' });
                     dispatch(setUser(data));
-                    navigation.navigate('DashBoard', {});
+                    // navigation.navigate('DashBoard', {});
                 } else {
                     showMessage({ message: 'Something went wrong', type: 'danger' });
                     setLoading(false)
@@ -148,10 +276,10 @@ const Login: React.FC = () => {
                                     {
                                         loading ? (
                                             <ActivityIndicator color="#fff" />
-                                        ) : 
-                                        (
-                                            <Text style={styles.loginButtonText}>{"Login"}</Text>
-                                        )}
+                                        ) :
+                                            (
+                                                <Text style={styles.loginButtonText}>{"Login"}</Text>
+                                            )}
                                 </TouchableOpacity>
 
                             </Animated.View>

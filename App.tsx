@@ -17,9 +17,21 @@ import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from './src/redux/store';
 import { clearUser } from './src/redux/slices/userSlice';
 import TakePicture from './src/screens/TakePicture';
+import DeviceInfo from 'react-native-device-info';
 
 const Stack = createNativeStackNavigator();
 const App = () => {
+
+
+  const checkIfEmulatorAndDebugging = async () => {
+  const isEmulator = await DeviceInfo.isEmulator();
+  console.log('Emulator:', DeviceInfo);
+  const isADBEnabled = await DeviceInfo.isAdbEnabled(); // Android only
+
+  console.log('ADB Enabled:', isADBEnabled);
+};
+
+
   const dispatch=useDispatch();
    const SESSION_TIMEOUT_MS = 43200000;
      const {userInfo,taskMaster} = useSelector((state: RootState) => state?.user);
@@ -33,7 +45,6 @@ const App = () => {
   
     if (loginTime === -2208988800000 && !userInfo && currentRoute !== 'SplashScreen') {
       const timer = setTimeout(() => {
-        // Double-check the route again after timeout
         const routeAfterDelay = navigationRef.getCurrentRoute()?.name;
         if (routeAfterDelay !== 'Login') {
           navigate('Login', {});
@@ -42,6 +53,7 @@ const App = () => {
   
       return () => clearTimeout(timer);
     }
+    checkIfEmulatorAndDebugging();
   }, [userInfo, loginTime]);
   
   const restoreSession = async () => {
@@ -53,7 +65,7 @@ const App = () => {
       if (timeDiff < SESSION_TIMEOUT_MS) {
       }
       else {
-           dispatch(clearUser());
+          //  dispatch(clearUser());
 
       }
     }

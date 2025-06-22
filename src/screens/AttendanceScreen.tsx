@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Camera, useCameraDevice, useCameraDevices } from 'react-native-vision-camera';
 import moment from 'moment';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { findCoordinates, getAddressFromLatLng } from '../utils/Helper';
+import { findCoordinates, getAddressFromLatLng, getDistanceFromLatLonInMeter } from '../utils/Helper';
 import { useNavigation } from '@react-navigation/native';
 import { axiosRequest } from '../utils/ApiRequest';
 import Url from '../utils/Url';
@@ -42,6 +42,7 @@ const AttendanceScreen = () => {
   const [photoPath, setPhotoPath] = useState<string | null>(null);
   const [currentLocation, setcurrentLocation] = useState<string | null>('');
   const [officeLocation, setOfficeAddress] = useState<string | null>('');
+  const [officeLatLong, setOfficeLatLong] = useState<any | null>([]);
   const [latLong, setLatLong] = useState<any | null>('');
   const [distance, setDistance] = useState<any | null>('');
   const [shareButton, setShareButton] = useState<any>(false);
@@ -64,13 +65,11 @@ const AttendanceScreen = () => {
     console.log(user);
     const fetchIPAddress = async () => {
       const state = await NetInfo.fetch();
-      console.log('Network Info:', state);
       setIpAddress(state.details?.ipAddress || null);
     };
 
     fetchIPAddress();
-    getCurrentLocation();
-    getDistancefromOffice();
+    getGeofence();
   }, []);
 
   const [deviceId, setDeviceId] = useState('');
@@ -81,8 +80,10 @@ const AttendanceScreen = () => {
       setDeviceId(id);
     };
 
+    getDistancefromOffice();
+    getCurrentLocation();
     fetchDeviceId();
-  }, []);
+  }, [officeLatLong]);
 
 
 
@@ -91,7 +92,6 @@ const AttendanceScreen = () => {
 
       const status = await Camera.requestCameraPermission();
       setHasPermission(status === 'granted');
-      console.log("permiss", status);
     };
     getPermissions();
   }, []);
@@ -110,13 +110,25 @@ const AttendanceScreen = () => {
     findCoordinates().then(async (coordinates: any) => {
       const { coords } = coordinates;
       const { fullAddress } = await getAddressFromLatLng(coords?.latitude, coords?.longitude);
-      const fullAddressOffice = await getAddressFromLatLng(28.693722, 77.171779);
+      const fullAddressOffice = await getAddressFromLatLng(officeLatLong[0]?.Latitude, officeLatLong[0]?.Longitude);
       setOfficeAddress(fullAddressOffice?.fullAddress)
       setcurrentLocation(fullAddress)
       setLatLong(coords)
 
+
     });
   })
+  const getGeofence = async () => {
+    await axiosRequest(`http://61.246.33.108:8069/api/geofencesbyid?ids=${user.userInfo?.geofence}`, Constant.API_REQUEST_METHOD.GET)
+      .then(({ data }) => {
+        if (data) {
+          setOfficeLatLong(data)
+        } else {
+        }
+      })
+      .catch(() => {
+      });
+  }
 
   const capturePhoto = async () => {
     if (cameraRef.current) {
@@ -148,10 +160,23 @@ const AttendanceScreen = () => {
   };
   const addcapturePhoto = async () => {
     setLoading(true);
-    if (distance >= 500) {
-      Alert.alert("you are not in 500 Meter range")
-      return;
-    }
+    console.log(distance[0]?.isWithinRadius);
+
+   if (distance[0]?.isWithinRadius) {
+  Alert.alert(
+    "Location Alert",
+    `Please mark your attendance inside the office.\nYou are currently ${distance[0]?.distance?.toFixed(2)} meter away.`,
+    [
+      {
+        text: "OK",
+        onPress: () => navigation.goBack(), // Navigate back when OK is pressed
+      },
+    ],
+    { cancelable: false }
+  );
+  return;
+}
+
 
     findCoordinates().then(async (coordinates: any) => {
       const { coords } = coordinates;
@@ -164,10 +189,11 @@ const AttendanceScreen = () => {
         "uid": user?.userInfo?.AgentId,
         "ip": "192.168.1.50",
         "email": user?.userInfo?.Email_id_Offical ? user?.userInfo?.Email_id_Offical : " ",
-        "TimeScheduleId": 1
+        "TimeScheduleId": 1,
+        "apkversion":user?.userInfo?.apkversion
       }
       // console.log(param);
-      
+
 
 
       await axiosRequest('http://61.246.33.108:8069/savecapture', Constant.API_REQUEST_METHOD.POST, param)
@@ -191,43 +217,43 @@ const AttendanceScreen = () => {
   };
 
   const getDistancefromOffice = async () => {
+
     try {
       const coordinates: any = await findCoordinates();
 
-      const latitude = Number(coordinates?.coords?.latitude?.toFixed(2));
-      const longitude = Number(coordinates?.coords?.longitude?.toFixed(2));
+      const currentLat = Number(coordinates?.coords?.latitude?.toFixed(6));
+      const currentLon = Number(coordinates?.coords?.longitude?.toFixed(6));
 
-      const distance = getDistanceFromLatLonInKm(
-        latitude,
-        longitude,
-        28.693722,
-        77.171779
-      );
+      const results = officeLatLong.map((office) => {
+        const dist = getDistanceFromLatLonInMeter(
+          currentLat,
+          currentLon,
+          office.Latitude,
+          office.Longitude
+        );
 
-      setDistance(Number(distance.toFixed(2))); // Round final distance too (optional)
-      return distance;
+        return {
+          ...office,
+          distance: dist,
+          isWithinRadius: dist <= office.Radius,
+        };
+      });
+
+
+      // Optionally filter to just those within radius
+      const withinRadius = results.filter((r) => r.isWithinRadius);
+      const sorted = results.sort((a, b) => a.distance - b.distance);
+      setDistance(sorted)
+
+      return withinRadius;
     } catch (error) {
-      console.error("Error getting distance:", error);
+      console.error('Error getting distance:', error);
     }
   };
 
 
-  function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
-    const R = 6371; // Radius of the Earth in km
-    const dLat = deg2rad(lat2 - lat1);
-    const dLon = deg2rad(lon2 - lon1);
-    const a =
-      Math.sin(dLat / 2) ** 2 +
-      Math.cos(deg2rad(lat1)) *
-      Math.cos(deg2rad(lat2)) *
-      Math.sin(dLon / 2) ** 2;
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  }
 
-  function deg2rad(deg: number) {
-    return deg * (Math.PI / 180);
-  }
+
 
   const shareOnWhatsApp = async () => {
     if (!photoPath) {
@@ -331,7 +357,7 @@ const AttendanceScreen = () => {
                 </>
               ) : (
                 <>
-              
+
 
                   <View style={{ width: 250, height: 360, borderRadius: 10, overflow: 'hidden' }}>
                     <Camera
@@ -361,12 +387,12 @@ const AttendanceScreen = () => {
                   source={{ uri: 'https://img.icons8.com/color/96/000000/mountain.png' }}
                   style={styles.image}
                 />
-                  <CustomSuccessAlert
-                shareImageToWhatsApp={shareOnWhatsApp}
-  visible={shareButton}
-  onClose={() => setShareButton(false)}
-  photoPath={photoPath}
-/>
+                <CustomSuccessAlert
+                  shareImageToWhatsApp={shareOnWhatsApp}
+                  visible={shareButton}
+                  onClose={() => setShareButton(false)}
+                  photoPath={photoPath}
+                />
               </View>
 
               <View style={styles.detailRow}>
@@ -389,7 +415,7 @@ const AttendanceScreen = () => {
               <View style={styles.detailRow}>
                 <Text style={styles.icon}>📍</Text>
                 <Text style={styles.detailText}>
-                  Distance from Office is : <Text style={styles.bold}>{distance}</Text>
+                  Distance from Office is : <Text style={styles.bold}>{distance[0]?.distance} Meter</Text>
                 </Text>
               </View>
             </View>

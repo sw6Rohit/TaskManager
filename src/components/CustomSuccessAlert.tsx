@@ -102,7 +102,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   okText: {
-    color: 'white',
+    color: '#000',
     fontSize: 16,
   },
 });

@@ -7,6 +7,7 @@ import { axiosRequest } from '../utils/ApiRequest';
 import { useSelector } from 'react-redux';
 import { RootState } from '../redux/store';
 import { useNavigation } from '@react-navigation/native';
+import { showMessage } from 'react-native-flash-message';
 
 
 const initialStudents = [
@@ -29,6 +30,10 @@ const navigation =useNavigation()
     setStudents([...students, newStudent]);
     setShowForm(false);
   };
+
+  const getStudentList=()=>{
+    
+  }
   const saveStudent=async (params:any)=>{
     console.log(params);
   const param={
@@ -37,15 +42,15 @@ const navigation =useNavigation()
   "FathersName": params?.F_firstName,
   "MothersName": "",
   "Gender": params?.gender,
-  "DOB": "1992-05-15T00:00:00",
+  "DOB": `${params?.birthDay}-${params?.birthMonth}-${params?.birthYear}T00:00:00`,//"1992-05-15T00:00:00",
   "CasteCategortyId": 2,
   "RefID": null,
-  "CompaignID": 10,
-  "SubCompaignID": 5,
-  "LeadStatusID": 30,
+  "CompaignID": params?.campaign?.ID,
+  "SubCompaignID": params?.campaign?.ParentID,
+  "LeadStatusID": params?.stages,
   "CollegeId": null,
   "AssignedUserId": null,
-  "InstitutionID": 4,
+  "InstitutionID": -1,
   "CommentId": null,
   "ExamID": null,
   "Examscore": null,
@@ -65,7 +70,7 @@ const navigation =useNavigation()
   "Training_Status": "Not started",
   "Verification_Status": "Pending",
   "CourseTypeId": 1,
-  "CourseId": 25,
+  "CourseId": params?.course?.CourseId,
   "Remarks": "Looking for EPBA Only",
   "FollowDate": null,
   "FcampaignID": 37,
@@ -88,7 +93,7 @@ const navigation =useNavigation()
   "LeadInsertionDate": "2020-09-13T00:00:00",
   "PoolFlag": false,
   "SocialMediaFlag": false,
-  "Mobile_Whatsup": "8447689848",
+  "Mobile_Whatsup": params?.mobile2,
   "DataInsertSource": "Portal",
   "ActionTakenByLastUser": null,
   "VisitCount": 0,
@@ -101,9 +106,9 @@ const navigation =useNavigation()
             console.log(data);
   
             if (data) {
-              // showMessage({ message: "Record Saved Successfully", type: 'success' });
+              // showMessage({ message: "Record Saved Successfully Now Capture Image", type: 'success' });
               navigation.navigate('TakePicture')
-              // Alert.alert("Record Saved Successfully")
+              Alert.alert("Record Saved Successfully Now Capture Image")
               // navigation.goBack();
             } else {
               // showMessage({ message: data?.message, type: 'danger' });
@@ -142,6 +147,10 @@ const navigation =useNavigation()
 
   return (
     <View style={styles.container}>
+      <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+  <Text style={styles.backButtonText}>← Back</Text>
+</TouchableOpacity>
+
       <TouchableOpacity style={styles.addBtn} onPress={() => setShowForm(true)}>
         <Text style={styles.addText}>+ Add Student</Text>
       </TouchableOpacity>
@@ -168,6 +177,19 @@ const styles = StyleSheet.create({
     padding: 16,
     flex: 1,
   },
+  backButton: {
+  paddingVertical: 8,
+  paddingHorizontal: 12,
+  alignSelf: 'flex-start',
+  backgroundColor: '#ddd',
+  borderRadius: 8,
+  marginBottom: 10,
+},
+backButtonText: {
+  fontSize: 16,
+  color: '#333',
+},
+
   addBtn: {
     backgroundColor: '#4CAF50',
     padding: 12,

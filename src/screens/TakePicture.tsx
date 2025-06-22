@@ -177,8 +177,8 @@ const TakePicture = () => {
           if (data) {
             setShareButton(true)
             // showMessage({ message: "Attendance marked Successfully", type: 'success' });
-            // Alert.alert("Attendance marked Successfully")
-            // navigation.goBack();
+            Alert.alert("Attendance marked Successfully")
+            navigation.navigate("StudentList")
           } else {
             showMessage({ message: data?.message, type: 'danger' });
             // addOfflinePic(param);

@@ -61,38 +61,6 @@ const TreeNode = ({ node, level = 0, selectedId, onSelect }: any) => {
   );
 };
 
-const TreeView = ({ data }: { data: any[] }) => {
-  const [selectedItem, setSelectedItem] = useState<any>(null);
-
-  const handleSelect = (node: any) => {
-    setSelectedItem(node);
-  };
-
-  return (
-    <View>
-      {/* Selected Node Display */}
-      {selectedItem && (
-        <View style={styles.selectedContainer}>
-          <Text style={styles.selectedLabel}>Selected:</Text>
-          <Text style={styles.selectedValue}>{selectedItem.CourseName}</Text>
-        </View>
-      )}
-
-      <FlatList
-        data={data}
-        renderItem={({ item }) => (
-          <TreeNode
-            node={item}
-            selectedId={selectedItem?.CourseId}
-            onSelect={handleSelect}
-          />
-        )}
-        keyExtractor={(item) => item.CourseId.toString()}
-      />
-    </View>
-  );
-};
-
 const styles = StyleSheet.create({
   nodeRow: {
     flexDirection: 'row',
@@ -128,4 +96,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default TreeView;
+export default TreeNode;
