@@ -6,13 +6,13 @@ import Url from './Url';
 
 
 
-export const axiosRequest = async (url: string, method: string, params: any = "") => {
+export const axiosRequest = async (url: string, method: string, params: any = "", timeout=10000) => {
     console.log(url,method);
     
 
     const axiosConfig = axios.create({
         baseURL: Url.HOST_URL,
-        timeout: 10000,
+        timeout: timeout,
     });
     // axiosConfig.interceptors.request.use(function (config) {
     //     const token = store.getState()?.user?.userData?.token;

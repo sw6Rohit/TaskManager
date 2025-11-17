@@ -106,33 +106,45 @@ export function notLoginAlert(navigation: any) {
 }
 
 
+
 export async function findCoordinates() {
+  try {
+    const granted = await PermissionsAndroid.request(
+      PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+      {
+        title: 'Alter',
+        message: 'We want your location to help you find things',
+        buttonNegative: 'Cancel',
+        buttonPositive: 'OK',
+      }
+    );
 
-    try {
-        const granted = await PermissionsAndroid.request(
-            PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-            {
-                title: 'Alter',
-                message: `We want your location to help you to find things`,
-                buttonNegative: 'Cancel',
-                buttonPositive: 'OK',
-            },
+    if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+      return new Promise((resolve, reject) => {
+        Geolocation.getCurrentPosition(
+          position => {
+            resolve(position);
+          },
+          error => {
+            reject(error);
+          },
+          {
+            // enableHighAccuracy: false,
+            // timeout: 10000, // 10 seconds
+            // maximumAge: 0, // Don't use cached location
+            // useSignificantChanges:true
+          }
         );
-
-        if (granted === PermissionsAndroid.RESULTS.GRANTED) {
-            return new Promise((resolve, reject) => {
-                Geolocation.getCurrentPosition(position => {
-                    resolve(position)
-                });
-            })
-        }
-
-    } catch (err) {
-        console.warn(err);
+      });
+    } else {
+      throw new Error('Location permission denied');
     }
-
-
+  } catch (err) {
+    console.warn(err);
+    throw err;
+  }
 }
+
 export async function getAddressFromLatLng(lat:any, lng:any) {
   try {
     const result = await LocationModule.getAddressFromCoordinates(lat, lng);
@@ -148,11 +160,13 @@ export  function getDistanceFromLatLonInMeter(lat1: number, lon1: number, lat2: 
     const dLat = deg2rad(lat2 - lat1);
     const dLon = deg2rad(lon2 - lon1);
     const a =
-      Math.sin(dLat / 2) ** 2 +
-      Math.cos(deg2rad(lat1)) *
-      Math.cos(deg2rad(lat2)) *
-      Math.sin(dLon / 2) ** 2;
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(deg2rad(lat1)) *
+    Math.cos(deg2rad(lat2)) *
+    Math.sin(dLon / 2) ** 2;
+    // console.log(lat1,a);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    
     return R * c * 1000;
   }
 

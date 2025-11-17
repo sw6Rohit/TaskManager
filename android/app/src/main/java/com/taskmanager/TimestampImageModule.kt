@@ -1,4 +1,5 @@
 package com.taskmanager
+
 import android.graphics.*
 import android.util.Log
 import com.facebook.react.bridge.*
@@ -26,45 +27,48 @@ class TimestampImageModule(reactContext: ReactApplicationContext) :
             val mutableBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, true)
             val canvas = Canvas(mutableBitmap)
 
-            val paint = Paint().apply {
+            // Default paint for most text
+            val defaultPaint = Paint().apply {
                 color = Color.WHITE
                 textSize = 60f
                 typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
                 setShadowLayer(4f, 2f, 2f, Color.BLACK)
             }
 
-            // Timestamp and LatLng
+            // Special paint for currentAddress (larger and bolder)
+            val currentAddressPaint = Paint(defaultPaint).apply {
+                textSize = 90f
+                typeface = Typeface.create(Typeface.DEFAULT_BOLD, Typeface.BOLD)
+            }
+
+            // Timestamp and Lat/Lng text
             val timeStamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
             val latLngText = "Lat: %.5f, Lng: %.5f".format(latitude, longitude)
 
-            // Split long addresses into chunks (up to 2 lines)
-            val currentLines = if (currentAddress.length > 50)
-                currentAddress.chunked(50).take(2)
-            else listOf(currentAddress)
-
-            val officeLines = if (officeAddress.length > 50)
-                officeAddress.chunked(50).take(2)
-            else listOf(officeAddress)
+            // Word-safe line splitting (not just 50 characters)
+            val currentLines = splitIntoLines(currentAddress, 50)
+            val officeLines = splitIntoLines(officeAddress, 50)
 
             val padding = 40f
-            val lineHeight = paint.textSize + 10f
 
-            // Build list of lines to draw
-            val linesToDraw = mutableListOf<String>().apply {
-                add("Time: $timeStamp")
-                add(latLngText)
-                add("Current: ${currentLines[0]}")
-                if (currentLines.size > 1) add(currentLines[1])
-                add("Office: ${officeLines[0]}")
-                if (officeLines.size > 1) add(officeLines[1])
+            // Build lines and assign correct paint
+            val linesToDraw = mutableListOf<Pair<String, Paint>>().apply {
+                add("Time: $timeStamp" to defaultPaint)
+                add(latLngText to defaultPaint)
+                add("Current: ${currentLines[0]}" to currentAddressPaint)
+                if (currentLines.size > 1) add(currentLines[1] to currentAddressPaint)
+                add("Office: ${officeLines[0]}" to defaultPaint)
+                if (officeLines.size > 1) add(officeLines[1] to defaultPaint)
             }
 
-            // Draw from bottom upward
-            linesToDraw.reversed().forEachIndexed { index, line ->
-                canvas.drawText(line, padding, bitmap.height - (index + 1) * lineHeight, paint)
+            // Draw text from bottom upward with each line's paint
+            var yPosition = bitmap.height.toFloat() - 40f
+            linesToDraw.reversed().forEach { (line, paint) ->
+                yPosition -= paint.textSize + 10f
+                canvas.drawText(line, padding, yPosition, paint)
             }
 
-            // Save updated image
+            // Save the updated image
             val outputFile = File(reactApplicationContext.cacheDir, "timestamped_${System.currentTimeMillis()}.jpg")
             FileOutputStream(outputFile).use { out ->
                 mutableBitmap.compress(Bitmap.CompressFormat.JPEG, 100, out)
@@ -76,6 +80,14 @@ class TimestampImageModule(reactContext: ReactApplicationContext) :
         } catch (e: Exception) {
             Log.e("TimestampImage", "Error adding timestamp", e)
             promise.reject("ERROR_ADDING_TIMESTAMP", e.message, e)
+        }
+    }
+
+    private fun splitIntoLines(text: String, maxLength: Int): List<String> {
+        return if (text.length <= maxLength) {
+            listOf(text)
+        } else {
+            text.chunked(maxLength).take(2)
         }
     }
 }

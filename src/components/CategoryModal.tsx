@@ -1,5 +1,5 @@
 // CategoryModal.tsx
-import React, { useState } from 'react';
+import React, {useState} from 'react';
 import {
   Modal,
   View,
@@ -28,11 +28,13 @@ const CategoryModal = ({
     nodes
       .map((node: any) => {
         const children = node.children ? filterTree(node.children, query) : [];
-        const match = node.CourseName.toLowerCase().includes(query.toLowerCase());
+        const match =
+          node?.CourseName &&
+          node?.CourseName.toLowerCase().includes(query.toLowerCase());
         // console.log(node,children,match,query);
 
         if (match || children.length > 0) {
-          return { ...node, children, expanded: true };
+          return {...node, children, expanded: true};
         }
         return null;
       })
@@ -40,8 +42,7 @@ const CategoryModal = ({
 
   const filteredTree = search ? filterTree(treeData, search) : treeData;
 
-
-  const getMaxDepth = (nodes) => {
+  const getMaxDepth = nodes => {
     let maxDepth = 0;
 
     const traverse = (node, depth) => {
@@ -54,27 +55,33 @@ const CategoryModal = ({
     return maxDepth;
   };
 
-  const TreeNode = ({ node, level, toggleCheck, toggleNode }) => {
-    const maxlev = getMaxDepth(node.children)
+  const TreeNode = ({node, level, toggleCheck, toggleNode}) => {
+    const maxlev = getMaxDepth(node.children);
     // console.log(maxlev, node?.LevelID);
 
     return (
-      <View style={{ marginLeft: level * 15 }}>
-        {<TouchableOpacity onPress={() => toggleNode(node.ID)}>
-          {node.children.length > 0 && maxlev > node?.LevelID ? (
-            <Text style={styles.nodeText}>
-              {node.expanded ? '▼ ' : '▶ '}
-              {node.CourseName}
-            </Text>
-          ) : (
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Checkbox checked={node?.checked} onPress={() => toggleCheck(node.ID)} />
-              <Text>{node.CourseName}</Text>
-            </View>
-          )}
-        </TouchableOpacity>}
+      <View style={{marginLeft: level * 15}}>
+        {
+          <TouchableOpacity onPress={() => toggleNode(node.ID)}>
+            {node.children.length > 0 && maxlev > node?.LevelID ? (
+              <Text style={styles.nodeText}>
+                {node.expanded ? '▼ ' : '▶ '}
+                {node.CourseName}
+              </Text>
+            ) : (
+              <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                <Checkbox
+                  checked={node?.checked}
+                  onPress={() => toggleCheck(node.ID)}
+                />
+                <Text>{node.CourseName}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        }
 
-        {node.expanded && maxlev > node?.LevelID &&
+        {node.expanded &&
+          maxlev > node?.LevelID &&
           node.children.map(child => (
             <TreeNode
               key={child.ID}
@@ -89,9 +96,15 @@ const CategoryModal = ({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={onClose} >
-      </TouchableOpacity>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}>
+      <TouchableOpacity
+        style={styles.overlay}
+        activeOpacity={1}
+        onPress={onClose}></TouchableOpacity>
 
       <View style={styles.modalContent}>
         <TouchableOpacity onPress={onClose} style={styles.closeButton}>
@@ -99,7 +112,9 @@ const CategoryModal = ({
         </TouchableOpacity>
 
         <Text style={styles.title}>Select Category</Text>
-        <Text style={styles.title}>Points  :- {selectedPoint?.points}{' '}{selectedPoint?.Unit}</Text>
+        <Text style={styles.title}>
+          Points :- {selectedPoint?.points} {selectedPoint?.Unit}
+        </Text>
         <TextInput
           style={styles.searchInput}
           placeholder="Search category"
@@ -128,9 +143,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.3)',
   },
   modalContent: {
-    position: 'absolute',
+    // position: 'absolute',
     bottom: 0,
-    height: screenHeight * 0.8,
+    height: screenHeight * 0.7,
     width: '100%',
     backgroundColor: 'white',
     borderTopLeftRadius: 16,
@@ -158,7 +173,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginVertical: 4,
   },
-   closeButton: {
+  closeButton: {
     position: 'absolute',
     top: 10,
     right: 10,
@@ -170,7 +185,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     elevation: 5,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: {width: 0, height: 2},
     shadowOpacity: 0.3,
     shadowRadius: 4,
     zIndex: 1000,

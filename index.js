@@ -16,3 +16,9 @@ const RootApp = () => (
 );
 
 AppRegistry.registerComponent(appName, () => RootApp);
+
+AppRegistry.registerHeadlessTask('CallTask', () => async (data) => {
+  const { number } = data;
+  console.log('[Headless JS] Incoming call from:', number);
+
+});
