@@ -35,8 +35,8 @@ import {findCoordinates, getDistanceFromLatLonInMeter} from '../utils/Helper';
 import DeviceInfo from 'react-native-device-info';
 
 const LoginSchema = Yup.object().shape({
-  User_Email_Id: Yup.string().required('Mobile No is required'),
-  Password: Yup.string().required('Password is required'),
+  username: Yup.string().required('Mobile No is required'),
+  password: Yup.string().required('Password is required'),
 });
 
 const Login: React.FC = () => {
@@ -73,8 +73,8 @@ const Login: React.FC = () => {
   );
 
   const checkGPSStatus = async () => {
-    navigation.navigate('DashBoard', {fromLogin: true});
     if (Platform.OS === 'android') {
+      // if (user?.userInfo) navigation.navigate('DashBoard', {fromLogin: true});
       const granted = await PermissionsAndroid.request(
         PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
         {
@@ -120,12 +120,14 @@ const Login: React.FC = () => {
               {cancelable: true},
             );
           } else {
+            setLoading(false);
             showMessage({message: 'Login Successfully', type: 'success'});
             navigation.navigate('DashBoard', {fromLogin: true});
           }
         }
       },
       error => {
+        setLoading(false);
         console.log('GPS Error:', error);
         if (error.code === 2) {
           Alert.alert(
@@ -204,26 +206,117 @@ const Login: React.FC = () => {
       .catch(() => {});
   };
 
-  const handleLogin = async (values: {
-    User_Email_Id: string;
-    Password: string;
-  }) => {
+  const handleLogin = async (values: {username: string; password: string}) => {
     const param = {
       ...values,
-      RememberMe: true,
-      IsRemoteLogin: true,
     };
     setLoading(true);
     await axiosRequest(
-      'http://61.246.33.108:8069/login',
+      `http://webapi.prdkvmic.org.in/api${Url.LOGIN}`,
       Constant.API_REQUEST_METHOD.POST,
       param,
     )
-      .then(({data}) => {
+      .then(async ({data}) => {
+        dispatch(setUser({token: data?.token}));
         if (data) {
-          console.log(data);
-          setLoading(false);
-          dispatch(setUser(data));
+          await axiosRequest(
+            `http://webapi.prdkvmic.org.in/api/master/UserProfile/get`,
+            Constant.API_REQUEST_METHOD.GET,
+          ).then(UserProfile => {
+            const newUser = UserProfile?.data?.data[0];
+            console.log(newUser);
+
+            const mappedUser = {
+              AgentId: newUser.UserId,
+              AgentName: `${newUser.firstname} ${newUser.lastname}`,
+              Personal_Mobile: newUser.mobileno1,
+              Email_id_Offical: newUser.email,
+              department: newUser.department,
+              designation: newUser.designation,
+              dateofjoining: newUser.dateofjoining,
+              companyname: newUser.EmployeeCompanyName,
+              branch: newUser.BranchName,
+              apkversion: newUser.apkversion,
+              UserType: newUser.UserType,
+              image: newUser.image,
+              CompanyName: newUser.CompanyName,
+              CompanyShortName: newUser.CompanyShortName,
+
+              // Keep rest default (from previous JSON)
+              user: null,
+              userList: null,
+              id: 0,
+              tmsstatus: 0,
+              blockdays: 0,
+              AgentCode: null,
+              blockreason: null,
+              geofence: '1,2,3,4,5,6,7,8',
+              Agent_Short_Name: null,
+              TeamLeadName: null,
+              Role_id: data?.roleId,
+              Password: null,
+              officeemail: null,
+              Offical_Mobile: null,
+              otherphone: null,
+              userstatus: 0,
+              max_leads: 0,
+              status: false,
+              archive: false,
+              collegeid: 0,
+              campaign: null,
+              subcampaign: null,
+              islocked: 0,
+              FollowUpTimeLimit: 0,
+              punchid: 0,
+              isallcampaign: 0,
+              isallsubcampaign: 0,
+              isallowedforpool: 0,
+              leadcount: 0,
+              noOfhours: 0,
+              starttime: null,
+              endtime: null,
+              isallowedforoutlogin: 0,
+              priority: 0,
+              bucketSize: 0,
+              max_bucket_Size: 0,
+              ipaddress: null,
+              speeddialid: null,
+              LevelID: 0,
+              ParentID: 27,
+              SalesPipeLineid: 0,
+              IdealTimeOut: 0,
+              defaultAppId: 0,
+              syncDate: '0001-01-01T00:00:00',
+              syncStatus: null,
+              islockedStatus: null,
+              Token: null,
+              UserName: null,
+              UserNameDept: null,
+              TaskOption: 101,
+              dailylimit: 250,
+              TotalPendingTask: 10,
+              role: null,
+              homephone: null,
+              mobileno: null,
+              CompletionLimit: 0,
+              MaxPendingLimit: 0,
+              employeecode: null,
+              countryname: null,
+              isactive: 0,
+              typeofemp: 0,
+              rollid: 0,
+              leavetypeid: 0,
+              jobbranch: 0,
+              TeamLeadId: 0,
+              gender: null,
+              dateofbirth: '0001-01-01T00:00:00',
+              dateofanniversary: '0001-01-01T00:00:00',
+              Project: 0,
+            };
+
+            dispatch(setUser(mappedUser));
+          });
+          // setLoading(false);
           // navigation.navigate('DashBoard', {});
         } else {
           showMessage({message: 'Something went wrong', type: 'danger'});
@@ -272,7 +365,7 @@ const Login: React.FC = () => {
           <Text style={styles.subtitle}>{'Task Management'}</Text>
 
           <Formik
-            initialValues={{User_Email_Id: '', Password: ''}}
+            initialValues={{User_Email_Id: '', password: ''}}
             onSubmit={handleLogin}
             validationSchema={LoginSchema}>
             {({
@@ -287,13 +380,13 @@ const Login: React.FC = () => {
                 <TextInput
                   placeholder="Please enter Email Id/ mobile no"
                   style={styles.input}
-                  value={values.User_Email_Id}
-                  onChangeText={handleChange('User_Email_Id')}
-                  onBlur={handleBlur('User_Email_Id')}
+                  value={values.username}
+                  onChangeText={handleChange('username')}
+                  onBlur={handleBlur('username')}
                   placeholderTextColor="#ccc"
                 />
-                {touched.User_Email_Id && errors.User_Email_Id && (
-                  <Text style={styles.errorText}>{errors.User_Email_Id}</Text>
+                {touched.username && errors.username && (
+                  <Text style={styles.errorText}>{errors.username}</Text>
                 )}
 
                 {/* Password Input with Eye Icon */}
@@ -301,10 +394,10 @@ const Login: React.FC = () => {
                   <TextInput
                     placeholder="Please input password"
                     style={styles.passwordInput}
-                    value={values.Password}
+                    value={values.password}
                     secureTextEntry={!showPassword}
-                    onChangeText={handleChange('Password')}
-                    onBlur={handleBlur('Password')}
+                    onChangeText={handleChange('password')}
+                    onBlur={handleBlur('password')}
                     placeholderTextColor="#ccc"
                   />
                   <TouchableOpacity

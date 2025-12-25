@@ -1,7 +1,7 @@
 export default {
   HOST_URL: `http://61.246.33.108:8069/api/`,
 
-  LOGIN: 'login',
+  LOGIN: '/Auth/studentapi/login',
   LOGOUT: 'fieldagent-logout',
   savecapture: '/savecapture',
   ADD_TASK: '/task/createtask',

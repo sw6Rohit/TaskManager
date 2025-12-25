@@ -8,6 +8,7 @@ import Constant from '../utils/Constant';
 import Url from '../utils/Url';
 import {useSelector} from 'react-redux';
 import {RootState} from '../redux/store';
+import BackButton from '../components/BackButton';
 
 const FILTERS = [
   {label: 'All task', value: 'All'},
@@ -94,6 +95,7 @@ const TaskSummary = () => {
 
   return (
     <View style={styles.container}>
+      <BackButton />
       {/* Filter Tabs */}
       <View style={{flexDirection: 'row', flexWrap: 'wrap'}}>
         {FILTERS.map(f => {

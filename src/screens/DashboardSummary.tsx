@@ -1,4 +1,9 @@
-import {useIsFocused, useNavigation, useRoute} from '@react-navigation/native';
+import {
+  useFocusEffect,
+  useIsFocused,
+  useNavigation,
+  useRoute,
+} from '@react-navigation/native';
 import React, {useEffect, useState} from 'react';
 import {
   View,
@@ -10,6 +15,7 @@ import {
   FlatList,
   Image,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import {axiosRequest} from '../utils/ApiRequest';
@@ -39,13 +45,14 @@ const DashboardSummary = () => {
   const [isMarked, setisMarked] = useState<any>('Not Marked');
   const [isCompletedCount, setIsCompletedCount] = useState<any>({});
   const [IscheckLimit, setIScheckLimit] = useState<any>({});
+  const [loading, setLoading] = useState<any>(false);
 
   const tmsUrl = `http://61.246.33.108:8069/api/tms/status?userId=${userId}&date=${date}`;
   const attendanceUrl = `http://61.246.33.108:8069/api/attendance/latest?userId=${userId}`;
 
-  useEffect(() => {
-    getTmsStatus();
-  }, [isFocused]);
+  // useEffect(() => {
+  //   getTmsStatus();
+  // }, []);
 
   const fetchTmsStatus = async () => {
     const {data} = await axiosRequest(tmsUrl, Constant.API_REQUEST_METHOD.GET);
@@ -147,7 +154,7 @@ const DashboardSummary = () => {
   const getTmsStatus = async () => {
     const userId = user.userInfo?.AgentId;
     const date = moment().format('YYYY-MM-DD');
-
+    setLoading(true);
     const tmsUrl = `http://61.246.33.108:8069/api/tms/status?userId=${userId}&date=${date}`;
     const attendanceUrl = `http://61.246.33.108:8069/api/attendance/latest?userId=${userId}`;
     const checkLimit = `http://61.246.33.108:8069/api/tasks/check-limit?responsiblePersonId=${userId}`;
@@ -184,8 +191,15 @@ const DashboardSummary = () => {
       if (completedCountRes.data) {
         setIsCompletedCount(completedCountRes.data);
       }
-      console.log(completedCountRes, attendanceResponse);
+      setLoading(false);
+      return {
+        tmsStatus: tmsResponse.data.TMSStatus,
+        isMarked: attendanceResponse.data,
+        isCheckLimit: checkLimitRes.data,
+        completedCount: completedCountRes.data,
+      };
     } catch (error) {
+      setLoading(false);
       console.error('Error fetching TMS or Attendance status:', error);
       // Optionally show an Alert here if needed
     }
@@ -273,44 +287,65 @@ const DashboardSummary = () => {
     {id: '3', label: 'Payroll', icon: 'checkbook', color: '#D97706', nav: ''},
   ];
 
-  const onPressAttendance = () => {
-    console.log(isMarked);
+  const onPressAttendance = async () => {
     // navigation.navigate('AttendanceScreen');
+    if (user?.userInfo?.Role_id === '2') {
+      navigation.navigate('AttendanceScreen');
+    } else
+      await getTmsStatus().then(tmsData => {
+        console.log(tmsData);
 
-    if (isMarked?.AttendanceStatus == 'Not Marked') {
-      if (tmsStatus === 'inactive') {
-        Alert.alert(
-          'TMS not Filed !!',
-          `Allowing for Morning Attendace but you can not  mark Attendace without TMS in the evening Any Issue Call 9711612832/32 
+        if (tmsData?.isMarked?.AttendanceStatus == 'Unknown') {
+          Alert.alert(
+            `Got ${tmsData?.isMarked?.AttendanceStatus} status of attendance`,
+            `Allowing for Attendance but you can not mark Attendance without TMS in the evening. 
+Any Issue Call 9711612832/32 or email hr@atm.edu.in`,
+            [
+              {
+                text: 'OK',
+                onPress: () => navigation.navigate('AttendanceScreen'),
+              },
+            ],
+          );
+        }
+        if (tmsData?.isMarked?.AttendanceStatus == 'Not Marked') {
+          if (tmsData?.tmsStatus === 'inactive') {
+            Alert.alert(
+              'TMS not Filed !!',
+              `Allowing for Morning Attendace but you can not  mark Attendace without TMS in the evening Any Issue Call 9711612832/32 
 or email hr@atm.edu.in`,
-        );
-      }
-      if (isCompletedCount?.completedTaskCount > 0) {
-        Alert.alert(
-          'Warning',
-          `Dear ${user?.userInfo?.AgentName} Allowing for Morning Attendace but you can not  mark Attendace in the evening
-without clear your Buket from your Team Leadger 
+            );
+          }
+          if (tmsData?.completedCount?.completedTaskCount > 0) {
+            Alert.alert(
+              'Warning',
+              `Dear ${user?.userInfo?.AgentName} Allowing for Morning Attendace but you can not  mark Attendace in the evening
+without approval of your complete task from your team leader
 
 Any Issue Call 9711612832/32 or email hr@atm.edu.in`,
-        );
-      }
-      if (IscheckLimit?.maxPendingLimit > IscheckLimit?.pendingTaskCount) {
-        Alert.alert(IscheckLimit?.message);
-      }
-      navigation.navigate('AttendanceScreen');
-    } else {
-      if (tmsStatus === 'active')
-        Alert.alert(
-          'Error',
-          `You can  not mark Attendance without TMS 
+            );
+          }
+          if (
+            tmsData?.isCheckLimit?.maxPendingLimit >
+            tmsData?.isCheckLimit?.pendingTaskCount
+          ) {
+            Alert.alert(tmsData?.isCheckLimit?.message);
+          }
+          navigation.navigate('AttendanceScreen');
+        } else {
+          if (tmsData?.tmsStatus === 'active')
+            Alert.alert(
+              'Error',
+              `You can  not mark Attendance without TMS 
 Kindly fill TMS and then Mark Attendace
 again Any Issue 
 Call 9711612832/32 or email hr@atm.edu.in
 `,
-        );
+            );
 
-      return;
-    }
+          return;
+        }
+      });
   };
 
   const IconCard = ({icon, label, color, nav}: any) => (
@@ -322,146 +357,170 @@ Call 9711612832/32 or email hr@atm.edu.in
     </TouchableOpacity>
   );
   return (
-    <ScrollView style={styles.container}>
-      <WelcomeModal
-        visible={showWelcomeModal}
-        onClose={() => setShowWelcomeModal(false)}
-        userName={user?.userInfo?.AgentName}
-        apiData={tmsStatus}
-      />
-
-      <StatusBar hidden={true} />
-      <View style={styles.headerContainer}>
-        <View>
-          <Text style={styles.welcomeText}>{`Welcome, ${
-            user?.userInfo?.AgentName || 'Guest'
-          }(${user.userInfo?.apkversion})`}</Text>
-          <Text style={styles.header}>Dashboard</Text>
-        </View>
-        <TouchableOpacity onPress={() => navigation.navigate('UserProfile')}>
-          <Image
-            source={{uri: 'https://xsgames.co/randomusers/avatar.php?g=male'}}
-            style={styles.profileImage}
+    <FlatList
+      data={[1]} // dummy data
+      renderItem={() => null}
+      keyExtractor={() => 'dummy'}
+      ListHeaderComponent={
+        <View style={styles.container}>
+          <WelcomeModal
+            visible={showWelcomeModal}
+            onClose={() => setShowWelcomeModal(false)}
+            userName={user?.userInfo?.AgentName}
+            apiData={tmsStatus}
           />
-        </TouchableOpacity>
-      </View>
 
-      <View style={styles.attendanceContainer}>
-        <AttendanceStatCard
-          label="Present"
-          count="13"
-          color="#4CAF50"
-          bgColor="#E8F5E9"
-        />
-        <AttendanceStatCard
-          label="Absents"
-          count="02"
-          color="#F44336"
-          bgColor="#FFEBEE"
-        />
-        <AttendanceStatCard
-          label="Late in"
-          count="04"
-          color="#FF9800"
-          bgColor="#FFF3E0"
-        />
-      </View>
-
-      <View style={[styles.card, {width: '100%'}]}>
-        <View style={styles.headerRow}>
-          <View style={{flexDirection: 'column'}}>
-            <Text style={styles.title}>Today's Attendance</Text>
-            <Text style={styles.date}>Monday, 21 Jan 2023</Text>
-          </View>
-          <View style={{flexDirection: 'column'}}>
+          <StatusBar hidden={true} />
+          <View style={styles.headerContainer}>
+            <View>
+              <Text style={styles.welcomeText}>{`Welcome, ${
+                user?.userInfo?.AgentName || 'Guest'
+              }(${user.userInfo?.apkversion})`}</Text>
+              <Text>{`${
+                user?.userInfo?.Role_id == 1
+                  ? 'Admin'
+                  : user?.userInfo?.Role_id == 2
+                  ? 'Student'
+                  : 'Employee'
+              }`}</Text>
+              {user?.userInfo?.Role_id === '2' && (
+                <Text>{`${user?.userInfo?.branch}`}</Text>
+              )}
+              <Text style={styles.header}>Dashboard</Text>
+            </View>
             <TouchableOpacity
-              style={styles.requestBtn}
-              onPress={() => onPressAttendance()}>
-              <Text style={styles.requestText}>+ Attendance</Text>
+              onPress={() => navigation.navigate('UserProfile')}>
+              <Image
+                source={{
+                  uri: 'https://xsgames.co/randomusers/avatar.php?g=male',
+                }}
+                style={styles.profileImage}
+              />
             </TouchableOpacity>
           </View>
-        </View>
-      </View>
-      <View style={styles.statsContainer}>
-        <View style={styles.statBox}>
-          <MaterialCommunityIcons
-            name="clock-time-three"
-            size={20}
-            color={'#333'}
-          />
-          <Text style={styles.statTitle}>10:00 AM</Text>
-          <Text>Check In</Text>
-        </View>
-        <View style={styles.statBox}>
-          <MaterialCommunityIcons
-            name="clock-time-three"
-            size={20}
-            color={'#333'}
-          />
-          <Text style={styles.statTitle}>06:30 PM</Text>
-          <Text>Check Out</Text>
-        </View>
-        <View style={styles.statBox}>
-          <MaterialCommunityIcons
-            name="clock-time-three"
-            size={20}
-            color={'#333'}
-          />
-          <Text style={styles.statTitle}>08:00</Text>
-          <Text>Working HR’s</Text>
-        </View>
-      </View>
-      <View style={styles.headerContainer}>
-        <Text style={styles.subHeader}>📋 Task Summary</Text>
-        <TouchableOpacity
-          style={styles.requestBtn}
-          onPress={() => navigation.navigate('DashBoardC')}>
-          <Text style={styles.requestText}>+ Add Task</Text>
-        </TouchableOpacity>
-      </View>
 
-      {/* Project Summary Cards */}
-      <View style={styles.summaryGrid}>
-        <SummaryCard label="All" count="45" color="#66BB6A" />
-        <SummaryCard label="In Progress" count="24" color="#7E57C2" />
-        <SummaryCard label="DueToday" count="56" color="#AB47BC" />
-        <SummaryCard label="OverDue" count="16" color="#FFB300" />
-        <SummaryCard label="Completed" count="45" color="#66BB6A" />
-        <SummaryCard label="Closed" count="45" color="#66BB6A" />
-        <SummaryCard label="Refused" count="45" color="#66BB6A" />
-        <SummaryCard label="Deleted" count="45" color="#66BB6A" />
-        <SummaryCard label="Rejected" count="45" color="#66BB6A" />
-      </View>
-      <FlatList
-        data={cardData}
-        horizontal
-        keyExtractor={item => item.id}
-        contentContainerStyle={styles.container}
-        renderItem={({item}) => (
-          <IconCard
-            icon={item.icon}
-            label={item.label}
-            color={item.color}
-            nav={item?.nav}
-          />
-        )}
-      />
+          <View style={styles.attendanceContainer}>
+            <AttendanceStatCard
+              label="Present"
+              count="13"
+              color="#4CAF50"
+              bgColor="#E8F5E9"
+            />
+            <AttendanceStatCard
+              label="Absents"
+              count="02"
+              color="#F44336"
+              bgColor="#FFEBEE"
+            />
+            <AttendanceStatCard
+              label="Late in"
+              count="04"
+              color="#FF9800"
+              bgColor="#FFF3E0"
+            />
+          </View>
 
-      <FlatList
-        data={requestData}
-        horizontal
-        keyExtractor={item => item.id}
-        contentContainerStyle={styles.container1}
-        renderItem={({item}) => (
-          <RequestCard
-            count={item.count}
-            label={item.label}
-            color={item.color}
+          <View style={[styles.card, {width: '100%'}]}>
+            <View style={styles.headerRow}>
+              <View style={{flexDirection: 'column'}}>
+                <Text style={styles.title}>Today's Attendance</Text>
+                <Text style={styles.date}>Monday, 21 Jan 2023</Text>
+              </View>
+              <View style={{flexDirection: 'column'}}>
+                <TouchableOpacity
+                  style={styles.requestBtn}
+                  onPress={() => onPressAttendance()}>
+                  {loading ? (
+                    <ActivityIndicator />
+                  ) : (
+                    <Text style={styles.requestText}>+ Attendance</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+          <View style={styles.statsContainer}>
+            <View style={styles.statBox}>
+              <MaterialCommunityIcons
+                name="clock-time-three"
+                size={20}
+                color={'#333'}
+              />
+              <Text style={styles.statTitle}>10:00 AM</Text>
+              <Text>Check In</Text>
+            </View>
+            <View style={styles.statBox}>
+              <MaterialCommunityIcons
+                name="clock-time-three"
+                size={20}
+                color={'#333'}
+              />
+              <Text style={styles.statTitle}>06:30 PM</Text>
+              <Text>Check Out</Text>
+            </View>
+            <View style={styles.statBox}>
+              <MaterialCommunityIcons
+                name="clock-time-three"
+                size={20}
+                color={'#333'}
+              />
+              <Text style={styles.statTitle}>08:00</Text>
+              <Text>Working HR’s</Text>
+            </View>
+          </View>
+          <View style={styles.headerContainer}>
+            <Text style={styles.subHeader}>📋 Task Summary</Text>
+            <TouchableOpacity
+              style={styles.requestBtn}
+              onPress={() => navigation.navigate('DashBoardC')}>
+              <Text style={styles.requestText}>+ Add Task</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Project Summary Cards */}
+          <View style={styles.summaryGrid}>
+            <SummaryCard label="All" count="45" color="#66BB6A" />
+            <SummaryCard label="In Progress" count="24" color="#7E57C2" />
+            <SummaryCard label="DueToday" count="56" color="#AB47BC" />
+            <SummaryCard label="OverDue" count="16" color="#FFB300" />
+            <SummaryCard label="Completed" count="45" color="#66BB6A" />
+            <SummaryCard label="Closed" count="45" color="#66BB6A" />
+            <SummaryCard label="Refused" count="45" color="#66BB6A" />
+            <SummaryCard label="Deleted" count="45" color="#66BB6A" />
+            <SummaryCard label="Rejected" count="45" color="#66BB6A" />
+          </View>
+          <FlatList
+            data={cardData}
+            horizontal
+            keyExtractor={item => item.id}
+            contentContainerStyle={styles.container}
+            renderItem={({item}) => (
+              <IconCard
+                icon={item.icon}
+                label={item.label}
+                color={item.color}
+                nav={item?.nav}
+              />
+            )}
           />
-        )}
-      />
-      <CallAnalyticsScreen />
-    </ScrollView>
+
+          <FlatList
+            data={requestData}
+            horizontal
+            keyExtractor={item => item.id}
+            contentContainerStyle={styles.container1}
+            renderItem={({item}) => (
+              <RequestCard
+                count={item.count}
+                label={item.label}
+                color={item.color}
+              />
+            )}
+          />
+          <CallAnalyticsScreen />
+        </View>
+      }
+    />
   );
 };
 export default DashboardSummary;
