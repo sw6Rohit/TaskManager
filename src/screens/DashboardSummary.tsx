@@ -36,13 +36,18 @@ const DashboardSummary = () => {
   const taskMaster = useSelector((state: RootState) => state.user.taskMaster);
   const navigation = useNavigation();
   const dispatch = useDispatch();
-  const [showWelcomeModal, setShowWelcomeModal] = React.useState(false);
+  const [showWelcomeModal, setShowWelcomeModal] = React.useState(true);
   const [tmsStatus, setTmsStatus] = useState<any>(null);
   const isFocused = useIsFocused();
   const route = useRoute();
-  const userId = user.userInfo?.AgentId;
+  const userId = user.userInfo?.userId;
   const date = moment().format('YYYY-MM-DD');
-  const [isMarked, setisMarked] = useState<any>('Not Marked');
+  const [attendanceAgreementShown, setAttendanceAgreementShown] =
+    useState(false);
+  const [isMarked, setisMarked] = useState<any>({
+    In_Time: '00:00:00.0000000',
+    Out_Time: '00:00:00.0000000',
+  });
   const [isCompletedCount, setIsCompletedCount] = useState<any>({});
   const [IscheckLimit, setIScheckLimit] = useState<any>({});
   const [loading, setLoading] = useState<any>(false);
@@ -70,6 +75,17 @@ const DashboardSummary = () => {
     getAttendanceList();
     getDistancefromOffice();
   }, []);
+
+  useEffect(() => {
+    if (
+      route.params?.fromLogin &&
+      user?.userInfo?.userId &&
+      !attendanceAgreementShown
+    ) {
+      setAttendanceAgreementShown(true);
+      showCurrentMonthAttendanceAlert();
+    }
+  }, [route.params, user?.userInfo?.userId, attendanceAgreementShown]);
   const getProjectList = async () => {
     try {
       const param = {
@@ -95,7 +111,7 @@ const DashboardSummary = () => {
       const currentYear = moment().year();
 
       const param = {
-        UserId: user?.userInfo?.AgentId,
+        UserId: user?.userInfo?.userId,
         Month: currentMonth,
         Year: currentYear,
       };
@@ -109,6 +125,57 @@ const DashboardSummary = () => {
       });
     } catch (error) {
       console.log(error);
+    }
+  };
+
+  const formatAttendanceReport = (data: any[] = []) => {
+    if (!Array.isArray(data) || data.length === 0) {
+      return 'No attendance records found for this month.';
+    }
+
+    return data
+      .map(item => {
+        const attendanceDate = item?.LogDateOnly || item?.Date || '--';
+        const inTime = item?.InTime || item?.In_Time || '--';
+        const outTime = item?.OutTime || item?.Out_Time || '--';
+
+        return `${attendanceDate}  IN: ${inTime}  OUT: ${outTime}`;
+      })
+      .join('\n');
+  };
+
+  const showCurrentMonthAttendanceAlert = async () => {
+    try {
+      const currentMonth = moment().month() + 1;
+      const currentYear = moment().year();
+      const monthName = moment().format('MMMM YYYY');
+      const param = {
+        UserId: user?.userInfo?.userId,
+        Month: currentMonth,
+        Year: currentYear,
+      };
+
+      const {data} = await axiosRequest(
+        'http://61.246.33.108:8069/api/attendance/getreport',
+        Constant.API_REQUEST_METHOD.POST,
+        param,
+      );
+
+      Alert.alert(
+        `${monthName} Attendance`,
+        formatAttendanceReport(data),
+        [
+          {text: 'Disagree', style: 'cancel'},
+          {text: 'Agree', style: 'default'},
+        ],
+        {cancelable: false},
+      );
+    } catch (error) {
+      console.log(error);
+      Alert.alert(
+        'Attendance',
+        'Unable to load current month attendance. Please try again later.',
+      );
     }
   };
 
@@ -152,8 +219,10 @@ const DashboardSummary = () => {
     return deg * (Math.PI / 180);
   }
   const getTmsStatus = async () => {
-    const userId = user.userInfo?.AgentId;
+    const userId = user.userInfo?.userId;
     const date = moment().format('YYYY-MM-DD');
+    console.log(date);
+
     setLoading(true);
     const tmsUrl = `http://61.246.33.108:8069/api/tms/status?userId=${userId}&date=${date}`;
     const attendanceUrl = `http://61.246.33.108:8069/api/attendance/latest?userId=${userId}`;
@@ -174,9 +243,12 @@ const DashboardSummary = () => {
           completedCount,
           Constant.API_REQUEST_METHOD.GET,
           {},
-          25000,
+          60000,
         ),
-      ]);
+      ]).finally(() => {
+        setLoading(false);
+      });
+      console.log(tmsResponse);
 
       if (tmsResponse?.data) {
         setTmsStatus(tmsResponse.data.TMSStatus);
@@ -287,64 +359,117 @@ const DashboardSummary = () => {
     {id: '3', label: 'Payroll', icon: 'checkbook', color: '#D97706', nav: ''},
   ];
 
+  const hasPendingLimitIssue = tmsData =>
+    tmsData?.isCheckLimit?.maxPendingLimit >
+    tmsData?.isCheckLimit?.pendingTaskCount;
+
+  const showPendingLimitAlert = tmsData =>
+    Alert.alert(tmsData?.isCheckLimit?.message);
+
+  const isToday = date =>
+    moment(date).format('DD-MM-YYYY') === moment().format('DD-MM-YYYY');
+
+  const navigateAttendance = () => navigation.navigate('AttendanceScreen');
+
+  const alertAlreadyMarked = () =>
+    Alert.alert(
+      'You Have already marked CheckIn and Checkout',
+      'Do you want to mark again for today attendance',
+      [{text: 'Yes', onPress: navigateAttendance}, {text: 'No'}],
+    );
+
+  const alertTmsInactive = () =>
+    Alert.alert(
+      'Alert',
+      `You can not mark Attendance without TMS
+Kindly fill TMS and then Mark Attendance again
+Any Issue Call 9711612832/32 or email hr@atm.edu.in`,
+    );
+
+  const alertNoCompletedTask = agentName =>
+    Alert.alert(
+      'Alert',
+      `Dear ${agentName}, you cannot mark evening attendance
+without approval of completed tasks from your team leader
+
+Any Issue Call 9711612832/32 or email hr@atm.edu.in`,
+    );
+
+  const alertUnknownStatus = date =>
+    Alert.alert(
+      `Got Unknown status of attendance Date ${moment(date).format(
+        'DD-MM-YYYY',
+      )}`,
+      `Allowing for Attendance but you cannot mark Attendance without TMS in the evening.
+Any Issue Call 9711612832/32 or email hr@atm.edu.in`,
+      [{text: 'OK', onPress: navigateAttendance}],
+    );
+
   const onPressAttendance = async () => {
     // navigation.navigate('AttendanceScreen');
+
     if (user?.userInfo?.Role_id === '2') {
       navigation.navigate('AttendanceScreen');
     } else
       await getTmsStatus().then(tmsData => {
-        console.log(tmsData);
+        console.log(tmsData?.tmsStatus);
+        const status = tmsData?.isMarked?.AttendanceStatus;
+        const date = tmsData?.isMarked?.Date;
+        const isTodayMarked = isToday(date);
 
-        if (tmsData?.isMarked?.AttendanceStatus == 'Unknown') {
-          Alert.alert(
-            `Got ${tmsData?.isMarked?.AttendanceStatus} status of attendance`,
-            `Allowing for Attendance but you can not mark Attendance without TMS in the evening. 
-Any Issue Call 9711612832/32 or email hr@atm.edu.in`,
-            [
-              {
-                text: 'OK',
-                onPress: () => navigation.navigate('AttendanceScreen'),
-              },
-            ],
-          );
-        }
-        if (tmsData?.isMarked?.AttendanceStatus == 'Not Marked') {
-          if (tmsData?.tmsStatus === 'inactive') {
-            Alert.alert(
-              'TMS not Filed !!',
-              `Allowing for Morning Attendace but you can not  mark Attendace without TMS in the evening Any Issue Call 9711612832/32 
-or email hr@atm.edu.in`,
-            );
-          }
-          if (tmsData?.completedCount?.completedTaskCount > 0) {
-            Alert.alert(
-              'Warning',
-              `Dear ${user?.userInfo?.AgentName} Allowing for Morning Attendace but you can not  mark Attendace in the evening
-without approval of your complete task from your team leader
-
-Any Issue Call 9711612832/32 or email hr@atm.edu.in`,
-            );
-          }
-          if (
-            tmsData?.isCheckLimit?.maxPendingLimit >
-            tmsData?.isCheckLimit?.pendingTaskCount
-          ) {
-            Alert.alert(tmsData?.isCheckLimit?.message);
-          }
-          navigation.navigate('AttendanceScreen');
-        } else {
-          if (tmsData?.tmsStatus === 'active')
-            Alert.alert(
-              'Error',
-              `You can  not mark Attendance without TMS 
-Kindly fill TMS and then Mark Attendace
-again Any Issue 
-Call 9711612832/32 or email hr@atm.edu.in
-`,
-            );
-
+        // ✅ Morning + Evening marked
+        if (status === 'Morning and Evening' && isTodayMarked) {
+          alertAlreadyMarked();
           return;
         }
+
+        // ✅ Morning only
+        if (status === 'Morning Only' && isTodayMarked) {
+          if (tmsData?.tmsStatus !== 'active') {
+            alertTmsInactive();
+            return;
+          }
+
+          // if (tmsData?.completedCount?.completedTaskCount <= 0) {
+          //   alertNoCompletedTask(user?.userInfo?.AgentName);
+          //   return;
+          // }
+
+          // if (hasPendingLimitIssue(tmsData)) {
+          //   showPendingLimitAlert(tmsData);
+          //   return;
+          // }
+
+          navigateAttendance();
+          return;
+        }
+
+        // ✅ Unknown status
+        if (status === 'Unknown') {
+          alertUnknownStatus(date);
+          return;
+        }
+
+        // ✅ Not marked or different date
+        if (status === 'Not Marked' || !isTodayMarked) {
+          if (tmsData?.tmsStatus === 'inactive') {
+            alertTmsInactive();
+          }
+
+          // if (tmsData?.completedCount?.completedTaskCount > 0) {
+          //   alertNoCompletedTask(user?.userInfo?.AgentName);
+          // }
+
+          // if (hasPendingLimitIssue(tmsData)) {
+          //   showPendingLimitAlert(tmsData);
+          // }
+
+          navigateAttendance();
+          return;
+        }
+
+        // ✅ Default
+        navigateAttendance();
       });
   };
 
@@ -366,25 +491,21 @@ Call 9711612832/32 or email hr@atm.edu.in
           <WelcomeModal
             visible={showWelcomeModal}
             onClose={() => setShowWelcomeModal(false)}
-            userName={user?.userInfo?.AgentName}
+            userName={user?.userInfo?.userName}
             apiData={tmsStatus}
           />
 
           <StatusBar hidden={true} />
           <View style={styles.headerContainer}>
-            <View>
+            <View style={{width: '90%'}}>
               <Text style={styles.welcomeText}>{`Welcome, ${
-                user?.userInfo?.AgentName || 'Guest'
-              }(${user.userInfo?.apkversion})`}</Text>
-              <Text>{`${
-                user?.userInfo?.Role_id == 1
-                  ? 'Admin'
-                  : user?.userInfo?.Role_id == 2
-                  ? 'Student'
-                  : 'Employee'
+                user?.userInfo?.userName || 'Guest'
+              }(App version: ${user.userInfo?.apkVersion})`}</Text>
+              <Text>{`User Type: ${
+                user?.userInfo?.entityTypeId == 1 ? 'Student' : 'Employee'
               }`}</Text>
               {user?.userInfo?.Role_id === '2' && (
-                <Text>{`${user?.userInfo?.branch}`}</Text>
+                <Text>{`${user?.userInfo?.branchName}`}</Text>
               )}
               <Text style={styles.header}>Dashboard</Text>
             </View>
@@ -424,7 +545,9 @@ Call 9711612832/32 or email hr@atm.edu.in
             <View style={styles.headerRow}>
               <View style={{flexDirection: 'column'}}>
                 <Text style={styles.title}>Today's Attendance</Text>
-                <Text style={styles.date}>Monday, 21 Jan 2023</Text>
+                <Text style={styles.date}>
+                  {moment().format('dddd, DD MMM YYYY')}
+                </Text>
               </View>
               <View style={{flexDirection: 'column'}}>
                 <TouchableOpacity
@@ -446,7 +569,11 @@ Call 9711612832/32 or email hr@atm.edu.in
                 size={20}
                 color={'#333'}
               />
-              <Text style={styles.statTitle}>10:00 AM</Text>
+              <Text style={styles.statTitle}>
+                {moment(isMarked?.In_Time, 'HH:mm:ss.SSSSSSS').format(
+                  'hh:mm A',
+                )}
+              </Text>
               <Text>Check In</Text>
             </View>
             <View style={styles.statBox}>
@@ -455,7 +582,11 @@ Call 9711612832/32 or email hr@atm.edu.in
                 size={20}
                 color={'#333'}
               />
-              <Text style={styles.statTitle}>06:30 PM</Text>
+              <Text style={styles.statTitle}>
+                {moment(isMarked?.Out_Time, 'HH:mm:ss.SSSSSSS').format(
+                  'hh:mm A',
+                )}
+              </Text>
               <Text>Check Out</Text>
             </View>
             <View style={styles.statBox}>
@@ -493,7 +624,7 @@ Call 9711612832/32 or email hr@atm.edu.in
             data={cardData}
             horizontal
             keyExtractor={item => item.id}
-            contentContainerStyle={styles.container}
+            contentContainerStyle={{}}
             renderItem={({item}) => (
               <IconCard
                 icon={item.icon}
@@ -530,7 +661,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 5,
     marginTop: 10,
   },
 
@@ -724,7 +855,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   container1: {
-    padding: 16,
+    paddingVertical: 10,
   },
   card1: {
     backgroundColor: '#fff',

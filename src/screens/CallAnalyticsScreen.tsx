@@ -15,6 +15,7 @@ import {
 import DropdownModal from '../components/DropdownModal';
 import {useSelector} from 'react-redux';
 import {RootState} from '../redux/store';
+import {syncCallLogsOnce} from '../utils/CallSyncService';
 
 const formatDuration = (seconds: number) => {
   const h = Math.floor(seconds / 3600);
@@ -27,6 +28,7 @@ const CallAnalyticsScreen = () => {
   const {taskMaster} = useSelector((state: RootState) => state?.user);
   const [stats, setStats] = useState(null);
   const [userList, setUserList] = useState([]);
+  const user = useSelector((state: RootState) => state?.user);
 
   useEffect(() => {
     const dataforDropdown = taskMaster?.userList?.map((item: any) => {
@@ -45,6 +47,10 @@ const CallAnalyticsScreen = () => {
 
       const data = await getCallStats();
       setStats(data);
+
+      // ✅ Call API here
+      const userId = user.userInfo?.AgentId;
+      await syncCallLogsOnce(userId);
     };
 
     fetchLogs();

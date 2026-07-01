@@ -23,6 +23,7 @@ class MainApplication : Application(), ReactApplication {
               // add(MyReactNativePackage())
               add(TimestampImagePackage())
               add(LocationPackage())
+              add(SimPackage());
             }
 
         override fun getJSMainModuleName(): String = "index"

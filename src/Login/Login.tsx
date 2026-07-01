@@ -15,6 +15,7 @@ import {
   Platform,
   PermissionsAndroid,
   Linking,
+  ScrollView,
 } from 'react-native';
 
 import {Formik} from 'formik';
@@ -25,7 +26,7 @@ import LinearGradient from 'react-native-linear-gradient';
 import {useDispatch, useSelector} from 'react-redux';
 import {useFocusEffect, useNavigation} from '@react-navigation/native';
 import {RootState} from '../redux/store';
-import {setUser} from '../redux/slices/userSlice';
+import {clearUser, setMenus, setUser} from '../redux/slices/userSlice';
 import {axiosRequest} from '../utils/ApiRequest';
 import Constant from '../utils/Constant';
 import Url from '../utils/Url';
@@ -33,10 +34,11 @@ import {showMessage} from 'react-native-flash-message';
 import Geolocation from '@react-native-community/geolocation';
 import {findCoordinates, getDistanceFromLatLonInMeter} from '../utils/Helper';
 import DeviceInfo from 'react-native-device-info';
+import {fetchSideBarMenu} from '../redux/slices/sideMenuSlice';
 
 const LoginSchema = Yup.object().shape({
-  username: Yup.string().required('Mobile No is required'),
-  password: Yup.string().required('Password is required'),
+  User_Email_Id: Yup.string().required('User Id is required'),
+  Password: Yup.string().required('Password is required'),
 });
 
 const Login: React.FC = () => {
@@ -63,7 +65,9 @@ const Login: React.FC = () => {
   useEffect(() => {
     const version = DeviceInfo.getVersion();
     setAppVersion(version);
-    checkGPSStatus();
+    if (user?.userInfo) {
+      checkGPSStatus();
+    }
   }, [user]);
 
   useFocusEffect(
@@ -71,96 +75,34 @@ const Login: React.FC = () => {
       getGeofence();
     }, [dispatch]),
   );
-
   const checkGPSStatus = async () => {
-    if (Platform.OS === 'android') {
-      // if (user?.userInfo) navigation.navigate('DashBoard', {fromLogin: true});
-      const granted = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-        {
-          title: 'Location Permission Required',
-          message: 'This app needs to access your location to proceed.',
-          buttonNeutral: 'Ask Me Later',
-          buttonNegative: 'Cancel',
-          buttonPositive: 'OK',
-        },
-      );
+    setLoading(true);
 
-      if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-        Alert.alert('Permission Denied', 'Location permission is required.');
-        return;
-      }
+    try {
+      // const withinRadius = await getGeofence();
+
+      // if (!withinRadius?.length) {
+      //   Alert.alert('You are not inside the office location.');
+      //   dispatch(clearUser());
+      //   return;
+      // }
+
+      navigation.navigate('MainDrawer', {
+        fromLogin: true,
+      });
+    } catch (e) {
+      console.log(e);
+    } finally {
+      setLoading(false);
     }
-
-    Geolocation.getCurrentPosition(
-      position => {
-        // console.log('GPS is ON', isWithinRadius);
-        if (isWithinRadius && !isWithinRadius[0]?.isWithinRadius) {
-          // showMessage({ message: 'You are not inside the office location.', type: 'danger' });
-          Alert.alert('You are not inside the office location.');
-          setLoading(false);
-        }
-        // else
-
-        if (user?.userInfo && position) {
-          if (user?.userInfo?.apkversion != DeviceInfo.getVersion()) {
-            Alert.alert(
-              'Update Required',
-              'You are using' +
-                DeviceInfo.getVersion() +
-                'But currently running' +
-                user?.userInfo?.apkversion +
-                'Please install the latest version of the app to continue.',
-              [
-                {
-                  text: 'OK',
-                  onPress: () => Linking.openURL('https://appho.st/d/KIwfhe1v'), // Replace with your actual update link
-                },
-              ],
-              {cancelable: true},
-            );
-          } else {
-            setLoading(false);
-            showMessage({message: 'Login Successfully', type: 'success'});
-            navigation.navigate('DashBoard', {fromLogin: true});
-          }
-        }
-      },
-      error => {
-        setLoading(false);
-        console.log('GPS Error:', error);
-        if (error.code === 2) {
-          Alert.alert(
-            'GPS is Off',
-            'Please enable GPS to continue.',
-            [
-              {
-                text: 'Open Settings',
-                onPress: () => {
-                  Linking.openSettings(); // Takes user to app settings
-                },
-              },
-              {
-                text: 'Cancel',
-                style: 'cancel',
-              },
-            ],
-            {cancelable: false},
-          );
-        } else if (error.code === 3) {
-          // Alert.alert('Location Timeout', 'Unable to get your location in time. Try again.');
-        }
-      },
-      {
-        enableHighAccuracy: false,
-        timeout: 10000,
-        maximumAge: 1000,
-      },
-    );
   };
 
   const getGeofence = async () => {
-    await axiosRequest(
+    if (!user?.userInfo?.geofence) {
+      return [];
+    }
+
+    return await axiosRequest(
       `http://61.246.33.108:8069/api/geofencesbyid?ids=${user.userInfo?.geofence}`,
       Constant.API_REQUEST_METHOD.GET,
     )
@@ -199,133 +141,67 @@ const Login: React.FC = () => {
             return withinRadius;
           } catch (error) {
             console.error('Error getting distance:', error);
+            return [];
           }
         } else {
+          return [];
         }
       })
-      .catch(() => {});
+      .catch(() => []);
   };
 
-  const handleLogin = async (values: {username: string; password: string}) => {
-    const param = {
-      ...values,
-    };
+  const handleLogin = async (values: {
+    User_Email_Id: string;
+    Password: string;
+  }) => {
     setLoading(true);
-    await axiosRequest(
-      `http://webapi.prdkvmic.org.in/api${Url.LOGIN}`,
-      Constant.API_REQUEST_METHOD.POST,
-      param,
-    )
-      .then(async ({data}) => {
-        dispatch(setUser({token: data?.token}));
-        if (data) {
-          await axiosRequest(
-            `http://webapi.prdkvmic.org.in/api/master/UserProfile/get`,
-            Constant.API_REQUEST_METHOD.GET,
-          ).then(UserProfile => {
-            const newUser = UserProfile?.data?.data[0];
-            console.log(newUser);
 
-            const mappedUser = {
-              AgentId: newUser.UserId,
-              AgentName: `${newUser.firstname} ${newUser.lastname}`,
-              Personal_Mobile: newUser.mobileno1,
-              Email_id_Offical: newUser.email,
-              department: newUser.department,
-              designation: newUser.designation,
-              dateofjoining: newUser.dateofjoining,
-              companyname: newUser.EmployeeCompanyName,
-              branch: newUser.BranchName,
-              apkversion: newUser.apkversion,
-              UserType: newUser.UserType,
-              image: newUser.image,
-              CompanyName: newUser.CompanyName,
-              CompanyShortName: newUser.CompanyShortName,
+    const payload = {
+      userName: values.User_Email_Id,
+      loginId: values.User_Email_Id,
+      password: values.Password,
+    };
 
-              // Keep rest default (from previous JSON)
-              user: null,
-              userList: null,
-              id: 0,
-              tmsstatus: 0,
-              blockdays: 0,
-              AgentCode: null,
-              blockreason: null,
-              geofence: '1,2,3,4,5,6,7,8',
-              Agent_Short_Name: null,
-              TeamLeadName: null,
-              Role_id: data?.roleId,
-              Password: null,
-              officeemail: null,
-              Offical_Mobile: null,
-              otherphone: null,
-              userstatus: 0,
-              max_leads: 0,
-              status: false,
-              archive: false,
-              collegeid: 0,
-              campaign: null,
-              subcampaign: null,
-              islocked: 0,
-              FollowUpTimeLimit: 0,
-              punchid: 0,
-              isallcampaign: 0,
-              isallsubcampaign: 0,
-              isallowedforpool: 0,
-              leadcount: 0,
-              noOfhours: 0,
-              starttime: null,
-              endtime: null,
-              isallowedforoutlogin: 0,
-              priority: 0,
-              bucketSize: 0,
-              max_bucket_Size: 0,
-              ipaddress: null,
-              speeddialid: null,
-              LevelID: 0,
-              ParentID: 27,
-              SalesPipeLineid: 0,
-              IdealTimeOut: 0,
-              defaultAppId: 0,
-              syncDate: '0001-01-01T00:00:00',
-              syncStatus: null,
-              islockedStatus: null,
-              Token: null,
-              UserName: null,
-              UserNameDept: null,
-              TaskOption: 101,
-              dailylimit: 250,
-              TotalPendingTask: 10,
-              role: null,
-              homephone: null,
-              mobileno: null,
-              CompletionLimit: 0,
-              MaxPendingLimit: 0,
-              employeecode: null,
-              countryname: null,
-              isactive: 0,
-              typeofemp: 0,
-              rollid: 0,
-              leavetypeid: 0,
-              jobbranch: 0,
-              TeamLeadId: 0,
-              gender: null,
-              dateofbirth: '0001-01-01T00:00:00',
-              dateofanniversary: '0001-01-01T00:00:00',
-              Project: 0,
-            };
+    try {
+      const {data} = await axiosRequest(
+        'https://studentapinew.university99.com/api/user/A01User/login',
+        Constant.API_REQUEST_METHOD.POST,
+        payload,
+      );
 
-            dispatch(setUser(mappedUser));
-          });
-          // setLoading(false);
-          // navigation.navigate('DashBoard', {});
-        } else {
-          showMessage({message: 'Something went wrong', type: 'danger'});
-          setLoading(false);
-        }
-      })
-      .catch(() => {
+      console.log('Login Response =>', data);
+
+      if (data?.isSuccess) {
+        const userData = {
+          ...data.data.user,
+
+          // JWT token
+          token: data.data.token,
+
+          // compatibility with old code
+          geofence: data.data.user.geofences_id,
+          apkversion: data.data.user.apkVersion,
+        };
+        console.log(data);
+        dispatch(setUser(userData));
+        dispatch(setMenus(data?.data?.menus));
+      } else {
         setLoading(false);
-      });
+        Alert.alert(
+          'Login Failed',
+          data?.message || 'Invalid username or password',
+        );
+      }
+    } catch (error: any) {
+      setLoading(false);
+
+      console.log('Login Error =>', error);
+
+      Alert.alert(
+        'Error',
+        error?.response?.data?.message || 'Something went wrong',
+      );
+    }
   };
   function foucus(value: any) {
     if (value == 'email') {
@@ -345,27 +221,18 @@ const Login: React.FC = () => {
 
   return (
     <LinearGradient colors={Colors.colorGradient} style={styles.background}>
-      <View style={styles.overlay}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContainer}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled">
         <View style={styles.container}>
-          {/* <Animated.Text entering={FadeInDown.duration(1000)} style={styles.title}>
-                        Samvad
-                    </Animated.Text> */}
-          <View style={styles.topImageContainer}>
-            {/* <Image
-                            source={require("./assets/login_header.png")}
-                            style={styles.topImage}
-                        /> */}
-          </View>
-          {/* <Animated.Image
-                        source={Images.LOGO} // Change to your image path
-                        style={styles.logo}
-                    /> */}
-
           <Text style={styles.title}>{'Login'}</Text>
-          <Text style={styles.subtitle}>{'Task Management'}</Text>
+          <Text style={styles.subtitle}>
+            {'Task Management'}({appVersion})
+          </Text>
 
           <Formik
-            initialValues={{User_Email_Id: '', password: ''}}
+            initialValues={{User_Email_Id: '', Password: ''}}
             onSubmit={handleLogin}
             validationSchema={LoginSchema}>
             {({
@@ -376,37 +243,64 @@ const Login: React.FC = () => {
               errors,
               touched,
             }) => (
-              <Animated.View style={styles.inputContainer}>
-                <TextInput
-                  placeholder="Please enter Email Id/ mobile no"
-                  style={styles.input}
-                  value={values.username}
-                  onChangeText={handleChange('username')}
-                  onBlur={handleBlur('username')}
-                  placeholderTextColor="#ccc"
-                />
-                {touched.username && errors.username && (
-                  <Text style={styles.errorText}>{errors.username}</Text>
+              <Animated.View style={styles.formContainer}>
+                <View style={styles.noticeContainer}>
+                  <Text style={styles.noticeText}>
+                    📢 Last Date of Online ITI Admission is
+                  </Text>
+                  <Text style={styles.noticeDate}>16 June 2026</Text>
+                </View>
+
+                <Text style={styles.loginTitle}>Login</Text>
+
+                <Text style={styles.loginSubtitle}>
+                  Enter your email ID or mobile no.
+                </Text>
+
+                <Text style={styles.label}>Email ID or Mobile No</Text>
+
+                <View style={styles.inputBox}>
+                  <TextInput
+                    style={styles.inputField}
+                    value={values.User_Email_Id}
+                    onChangeText={handleChange('User_Email_Id')}
+                    onBlur={handleBlur('User_Email_Id')}
+                    placeholder="Email ID or Mobile No"
+                    placeholderTextColor="#999"
+                  />
+
+                  {values.User_Email_Id?.length > 0 && (
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={30}
+                      color="#16A34A"
+                    />
+                  )}
+                </View>
+
+                {touched.User_Email_Id && errors.User_Email_Id && (
+                  <Text style={styles.errorText}>{errors.User_Email_Id}</Text>
                 )}
 
-                {/* Password Input with Eye Icon */}
-                <View style={styles.passwordContainer}>
+                <Text style={styles.label}>Password</Text>
+
+                <View style={styles.inputBox}>
                   <TextInput
-                    placeholder="Please input password"
-                    style={styles.passwordInput}
-                    value={values.password}
+                    style={styles.inputField}
+                    value={values.Password}
                     secureTextEntry={!showPassword}
-                    onChangeText={handleChange('password')}
-                    onBlur={handleBlur('password')}
-                    placeholderTextColor="#ccc"
+                    onChangeText={handleChange('Password')}
+                    onBlur={handleBlur('Password')}
+                    placeholder="Password"
+                    placeholderTextColor="#999"
                   />
+
                   <TouchableOpacity
-                    onPress={() => setShowPassword(!showPassword)}
-                    style={styles.eyeIcon}>
+                    onPress={() => setShowPassword(!showPassword)}>
                     <Ionicons
-                      name={showPassword ? 'eye-off' : 'eye'}
-                      size={22}
-                      color="#666"
+                      name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                      size={28}
+                      color="#888"
                     />
                   </TouchableOpacity>
                 </View>
@@ -415,23 +309,61 @@ const Login: React.FC = () => {
                   <Text style={styles.errorText}>{errors.Password}</Text>
                 )}
 
-                {/* Login Button */}
+                <View style={styles.optionsRow}>
+                  <TouchableOpacity style={styles.rememberRow}>
+                    <Ionicons name="checkbox" size={24} color="#6D28D9" />
+                    <Text style={styles.rememberText}>Keep me logged in</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity>
+                    <Text style={styles.forgotText}>Forgot Password?</Text>
+                  </TouchableOpacity>
+                </View>
+
                 <TouchableOpacity
-                  style={styles.loginButton}
+                  style={styles.signInButton}
+                  disabled={loading}
                   onPress={() => handleSubmit()}>
                   {loading ? (
                     <ActivityIndicator color="#fff" />
                   ) : (
-                    <Text style={styles.loginButtonText}>{'Login'}</Text>
+                    <Text style={styles.signInText}>Sign In</Text>
                   )}
+                </TouchableOpacity>
+
+                <View style={styles.orContainer}>
+                  <View style={styles.line} />
+                  <Text style={styles.orText}>OR</Text>
+                  <View style={styles.line} />
+                </View>
+
+                <TouchableOpacity style={styles.googleButton}>
+                  <Ionicons name="logo-google" size={24} color="#DB4437" />
+                  <Text style={styles.googleText}>Sign in with Google</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.registerCard}
+                  onPress={() => {
+                    navigation.navigate('StudentRegistration');
+                  }}>
+                  <View>
+                    <Text style={styles.registerTitle}>
+                      New Admission User?
+                    </Text>
+
+                    <Text style={styles.registerLink}>Register Here.</Text>
+                  </View>
+
+                  <Ionicons name="arrow-forward" size={28} color="#6D28D9" />
                 </TouchableOpacity>
               </Animated.View>
             )}
           </Formik>
         </View>
-      </View>
-      <View style={{position: 'absolute', bottom: 20, alignSelf: 'center'}}>
-        <Text style={{color: '#000', fontSize: 12}}>
+      </ScrollView>
+      <View style={{alignSelf: 'center', paddingVertical: 5}}>
+        <Text style={{color: '#000', fontSize: 12, fontWeight: '700'}}>
           App Version: {appVersion}
         </Text>
       </View>
@@ -455,21 +387,15 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     width: '100%',
-    // backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+  },
+  scrollContainer: {
+    flexGrow: 1,
   },
   container: {
-    justifyContent: 'center',
     width: '100%',
-    height: '100%',
-    backgroundColor: 'rgba(255, 255, 255, 0.99)',
-    // padding: 20,
-    borderRadius: 10,
-    shadowColor: '#000',
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 6,
+    minHeight: '100%',
+    backgroundColor: 'rgba(255,255,255,0.99)',
+    paddingVertical: 30,
     alignItems: 'center',
   },
   title: {
@@ -569,6 +495,160 @@ const styles = StyleSheet.create({
   leftVectorImage: {
     height: 250,
     width: 150,
+  },
+  formContainer: {
+    width: '90%',
+  },
+
+  noticeContainer: {
+    backgroundColor: '#EF0000',
+    borderRadius: 10,
+    padding: 18,
+    marginBottom: 25,
+  },
+
+  noticeText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 18,
+  },
+
+  noticeDate: {
+    color: '#FFFF00',
+    fontSize: 22,
+    fontWeight: '700',
+    marginTop: 4,
+  },
+
+  loginTitle: {
+    fontSize: 42,
+    fontWeight: '700',
+    color: '#002B5B',
+  },
+
+  loginSubtitle: {
+    color: '#64748B',
+    fontSize: 18,
+    marginBottom: 20,
+  },
+
+  label: {
+    color: '#64748B',
+    marginBottom: 8,
+    fontWeight: '600',
+  },
+
+  inputBox: {
+    borderWidth: 1,
+    borderColor: '#D6DCE5',
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 15,
+    height: 65,
+    marginBottom: 12,
+  },
+
+  inputField: {
+    flex: 1,
+    color: '#000',
+    fontSize: 18,
+  },
+
+  optionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginVertical: 15,
+  },
+
+  rememberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  rememberText: {
+    marginLeft: 8,
+    color: '#475569',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+
+  forgotText: {
+    color: '#5B2EFF',
+    fontWeight: '700',
+  },
+
+  signInButton: {
+    backgroundColor: '#6D28D9',
+    borderRadius: 10,
+    height: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  signInText: {
+    color: '#fff',
+    fontSize: 22,
+    fontWeight: '700',
+  },
+
+  orContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 25,
+  },
+
+  line: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#D1D5DB',
+  },
+
+  orText: {
+    marginHorizontal: 15,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+
+  googleButton: {
+    borderWidth: 1,
+    borderColor: '#D6DCE5',
+    borderRadius: 10,
+    height: 60,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 15,
+  },
+
+  googleText: {
+    marginLeft: 10,
+    fontSize: 16,
+    color: '#111827',
+  },
+
+  registerCard: {
+    marginTop: 25,
+    borderWidth: 1,
+    borderColor: '#F5C266',
+    backgroundColor: '#FFF8E8',
+    borderRadius: 10,
+    padding: 18,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+
+  registerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+
+  registerLink: {
+    color: '#5B2EFF',
+    fontWeight: '700',
+    marginTop: 4,
   },
 });
 

@@ -19,12 +19,15 @@ import {clearUser} from './src/redux/slices/userSlice';
 import TakePicture from './src/screens/TakePicture';
 import DeviceInfo from 'react-native-device-info';
 import CallAnalyticsScreen from './src/screens/CallAnalyticsScreen';
+import DrawerNavigator from './src/navigation/DrawerNavigator';
+import WebViewScreen from './src/screens/WebViewScreen';
+import StudentRegistration from './src/screens/StudentRegistration';
 
 const Stack = createNativeStackNavigator();
 const App = () => {
   const checkIfEmulatorAndDebugging = async () => {
     const isEmulator = await DeviceInfo.isEmulator();
-    console.log('Emulator:', DeviceInfo);
+    // console.log('Emulator:', DeviceInfo);
     const isADBEnabled = await DeviceInfo.isAdbEnabled(); // Android only
 
     console.log('ADB Enabled:', isADBEnabled);
@@ -85,12 +88,17 @@ const App = () => {
         <Stack.Navigator
           initialRouteName="Login"
           screenOptions={{headerShown: false, animation: 'fade_from_bottom'}}>
-          <Stack.Screen name="DashBoard" component={DashboardSummary} />
+          <Stack.Screen name="MainDrawer" component={DrawerNavigator} />
           <Stack.Screen name="DashBoardC" component={DashBoard} />
           <Stack.Screen name="Login" component={Login} />
           <Stack.Screen name="UserProfile" component={UserProfile} />
           <Stack.Screen name="TaskSummary" component={TaskSummary} />
           <Stack.Screen name="AttendanceScreen" component={AttendanceScreen} />
+          <Stack.Screen name="WebViewScreen" component={WebViewScreen} />
+          <Stack.Screen
+            name="StudentRegistration"
+            component={StudentRegistration}
+          />
           <Stack.Screen
             name="AttendanceHistory"
             component={AttendanceHistory}

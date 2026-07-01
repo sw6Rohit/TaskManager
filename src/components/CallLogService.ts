@@ -1,8 +1,12 @@
 import CallLogs from 'react-native-call-log';
 import {PermissionsAndroid, Platform} from 'react-native';
+import {NativeModules} from 'react-native';
+
+const {SimModule} = NativeModules;
 
 export const getCallStats = async () => {
   const rawLogs = await CallLogs.loadAll();
+  const simList = await getSimList(); // 👈 NEW
 
   const stats = {
     total: rawLogs.length,
@@ -16,15 +20,26 @@ export const getCallStats = async () => {
       incoming: 0,
       outgoing: 0,
     },
+    logs: [], // 👈 store enriched logs
   };
-  console.log(rawLogs);
 
   rawLogs.forEach(log => {
     const {type, duration} = log;
-
-    const dur = parseInt(duration);
+    const dur = parseInt(duration || '0');
 
     stats.durations.total += dur;
+
+    // ✅ Get SIM Info
+    const simInfo = getSimDetailsFromCall(log, simList);
+    console.log(simInfo);
+
+    const enrichedLog = {
+      ...log,
+      simSlot: simInfo.simSlot,
+      carrier: simInfo.carrier,
+    };
+
+    stats.logs.push(enrichedLog);
 
     switch (type) {
       case 'INCOMING':
@@ -41,18 +56,39 @@ export const getCallStats = async () => {
       case 'REJECTED':
         stats.rejected++;
         break;
-      case 'BLOCKED':
-      case 'VOICEMAIL':
-      case 'ANSWERED_EXTERNALLY':
-        break;
-      default:
-        break;
     }
   });
 
   stats.neverAttended = stats.missed + stats.rejected;
 
   return stats;
+};
+const getSimList = async () => {
+  try {
+    const sims = await SimModule.getSimInfo();
+    return sims;
+  } catch (e) {
+    console.log('SIM error', e);
+    return [];
+  }
+};
+const getSimDetailsFromCall = (call: any, simList: any[]) => {
+  if (!call.phoneAccountId) {
+    return {simSlot: 'UNKNOWN', carrier: 'UNKNOWN'};
+  }
+
+  const match = simList.find(
+    sim => String(sim.subscriptionId) === String(call.phoneAccountId),
+  );
+
+  if (!match) {
+    return {simSlot: 'UNKNOWN', carrier: 'UNKNOWN'};
+  }
+
+  return {
+    simSlot: match.slotIndex === 0 ? 'SIM1' : 'SIM2',
+    carrier: match.carrierName,
+  };
 };
 
 export const requestCallLogPermission = async () => {

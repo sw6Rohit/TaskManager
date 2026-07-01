@@ -8,6 +8,7 @@ import {
   Image,
   ScrollView,
   Alert,
+  Linking,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {
@@ -32,7 +33,7 @@ import {Image as ImageCompresser} from 'react-native-compressor';
 import NetInfo from '@react-native-community/netinfo';
 
 import DeviceInfo from 'react-native-device-info';
-import {useSelector} from 'react-redux';
+import {useDispatch, useSelector} from 'react-redux';
 import {RootState} from '../redux/store';
 import BackButton from '../components/BackButton';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
@@ -40,6 +41,8 @@ import {NativeModules} from 'react-native';
 import Share from 'react-native-share';
 import CustomSuccessAlert from '../components/CustomSuccessAlert';
 import ViewShot from 'react-native-view-shot';
+import {navigate} from '../navigation/RootNavigation';
+import {clearUser} from '../redux/slices/userSlice';
 
 const {TimestampImage} = NativeModules;
 
@@ -73,6 +76,7 @@ const AttendanceScreen = () => {
   const viewShotRef = useRef<any>(null);
 
   const cameraRef = useRef<Camera>(null);
+  const dispatch = useDispatch();
 
   const [ipAddress, setIpAddress] = useState<string | null>(null);
 
@@ -136,23 +140,36 @@ const AttendanceScreen = () => {
     });
   };
   const getGeofence = async () => {
-    await axiosRequest(
-      `http://61.246.33.108:8069/api/geofencesbyid?ids=${user.userInfo?.geofence}`,
-      Constant.API_REQUEST_METHOD.GET,
-    )
-      .then(({data}) => {
-        if (data) {
-          // console.log(data);
-          setOfficeLatLong(data);
-          getDistancefromOffice();
-        } else {
-        }
-      })
-      .catch(() => {});
+    try {
+      const param = {
+        ids: user?.userInfo?.geofences_id?.toString() || '',
+      };
+
+      const {data} = await axiosRequest(
+        'https://studentapinew.university99.com/api/hrms/HRMS01Geofences/getgeofences',
+        Constant.API_REQUEST_METHOD.POST,
+        param,
+      );
+
+      if (data?.isSuccess && data?.data?.length > 0) {
+        console.log('Geofence Response:', data.data);
+
+        setOfficeLatLong(data.data);
+
+        // Pass data directly to avoid state timing issue
+        getDistancefromOffice(data.data);
+      } else {
+        console.log('No geofence found');
+        setOfficeLatLong([]);
+      }
+    } catch (error) {
+      console.log('Geofence Error:', error);
+      setOfficeLatLong([]);
+    }
   };
 
   const getTmsStatus = async () => {
-    const userId = user.userInfo?.AgentId;
+    const userId = user.userInfo?.userId;
     const date = moment().format('YYYY-MM-DD');
 
     const tmsUrl = `http://61.246.33.108:8069/api/tms/status?userId=${userId}&date=${date}`;
@@ -199,6 +216,27 @@ const AttendanceScreen = () => {
   };
 
   const capturePhoto = async () => {
+    if (user?.userInfo?.apkVersion != DeviceInfo.getVersion()) {
+      Alert.alert(
+        'Update Required',
+        'You are using' +
+          DeviceInfo.getVersion() +
+          'But currently running' +
+          user?.userInfo?.apkVersion +
+          'Please install the latest version of the app to continue.',
+        [
+          {
+            text: 'OK',
+            onPress: () =>
+              Linking.openURL(
+                'https://drive.google.com/file/d/1hKUsBY5GjNLFlfj48b7GNZgxHilBP3t_/view?usp=sharing',
+              ), // Replace with your actual update link
+          },
+        ],
+        {cancelable: true},
+      );
+      return;
+    }
     if (cameraRef.current) {
       try {
         const photo = await cameraRef.current.takePhoto({
@@ -249,9 +287,9 @@ const AttendanceScreen = () => {
     //   }
     // }
     setLoading(true);
-    console.log(distance[0]?.isWithinRadius);
+    console.log(distance);
 
-    if (distance[0]?.isWithinRadius) {
+    if (!distance[0]?.isWithinRadius && user?.userInfo?.entityTypeId != 1) {
       Alert.alert(
         'Location Alert',
         `🚨 Please mark your attendance inside the office.\nYou are currently 👉 ${distance[0]?.distance?.toFixed(
@@ -273,49 +311,76 @@ const AttendanceScreen = () => {
       const {coords} = coordinates;
 
       const param = {
-        data: `data:image/png;base64,${capturedImage}`,
-        Lalitude: coords?.latitude.toString(),
-        Laungitude: coords?.longitude.toString(),
-        PUNCH: 'IN',
-        uid: user?.userInfo?.AgentId,
-        ip: '192.168.1.50',
-        email: user?.userInfo?.Email_id_Offical
-          ? user?.userInfo?.Email_id_Offical
-          : ' ',
-        TimeScheduleId: 1,
-        apkversion: user?.userInfo?.apkversion,
+        images: capturedImage || '',
+        attachmentfile: photoPath || '',
+
+        longitude: coords?.longitude?.toString() || '',
+        latitude: coords?.latitude?.toString() || '',
+
+        uid: user?.userInfo?.userId?.toString() || '',
+
+        ip: ipAddress || '',
+
+        logDate: moment().format('YYYY-MM-DDTHH:mm:ss'),
+
+        punch: 'IN',
+
+        incurrentlocationname: currentLocation || '',
+
+        outcurrentlocationname: '',
+
+        inlocationname: officeLocation || '',
+
+        outlocationname: '',
+
+        entityTypeId: user?.userInfo?.entityTypeId || 0,
       };
       // console.log(param);
 
       await axiosRequest(
-        'http://61.246.33.108:8069/savecapture',
+        'https://studentapinew.university99.com/api/hrms/HRMS05Attendance/insertattendance',
         Constant.API_REQUEST_METHOD.POST,
         param,
       )
         .then(({data}) => {
-          console.log(data);
+          console.log('Attendance Response:', data);
 
-          if (data) {
+          if (data?.isSuccess) {
             setShareButton(true);
-            // showMessage({ message: "Attendance marked Successfully", type: 'success' });
-            // Alert.alert("Attendance marked Successfully")
-            // navigation.goBack();
+
+            showMessage({
+              message: data?.message || 'Attendance marked successfully',
+              type: 'success',
+            });
           } else {
-            showMessage({message: data?.message, type: 'danger'});
+            showMessage({
+              message: data?.message || 'Failed to mark attendance',
+              type: 'danger',
+            });
           }
         })
-        .catch(() => {});
+        .catch(error => {
+          console.log(error);
+
+          showMessage({
+            message: 'Unable to mark attendance',
+            type: 'danger',
+          });
+        })
+        .finally(() => {
+          setLoading(false);
+        });
     });
   };
 
-  const getDistancefromOffice = async () => {
+  const getDistancefromOffice = async (geofenceData = officeLatLong) => {
     try {
       const coordinates: any = await findCoordinates();
 
       const currentLat = Number(coordinates?.coords?.latitude?.toFixed(6));
       const currentLon = Number(coordinates?.coords?.longitude?.toFixed(6));
 
-      const results = officeLatLong.map(office => {
+      const results = geofenceData.map((office: any) => {
         const dist = getDistanceFromLatLonInMeter(
           currentLat,
           currentLon,
@@ -330,15 +395,14 @@ const AttendanceScreen = () => {
         };
       });
 
-      // Optionally filter to just those within radius
-      const withinRadius = results.filter(r => r.isWithinRadius);
       const sorted = results.sort((a, b) => a.distance - b.distance);
-      setDistance(sorted);
-      // console.log(results, sorted);
 
-      return {withinRadius, currentLon, results};
+      setDistance(sorted);
+
+      return sorted;
     } catch (error) {
       console.error('Error getting distance:', error);
+      return [];
     }
   };
 
@@ -379,13 +443,18 @@ const AttendanceScreen = () => {
     return `rgb(${Math.abs(r)}, ${Math.abs(g)}, ${Math.abs(b)})`;
   };
 
+  const onPressClose = () => {
+    dispatch(clearUser());
+    setShareButton(false);
+    navigate('Login', {});
+  };
   return (
     <SafeAreaView style={[styles.container]}>
       {isCameraReady ? (
         <>
           <View>
             <Text style={styles.welcomeText}>
-              Welcome, {user?.userInfo?.AgentName || 'Guest'}
+              Welcome, {user?.userInfo?.userName || 'Guest'}
             </Text>
           </View>
           <BackButton />
@@ -461,7 +530,9 @@ const AttendanceScreen = () => {
                       justifyContent: 'center',
                     }}>
                     <Text style={{backgroundColor: '#fff'}}>
-                      {user.userInfo?.AgentName}
+                      {`${
+                        user.userInfo?.userName
+                      } (${DeviceInfo.getVersion()})`}
                       {moment().format('DD-MM-YYYY hh:mm:SS')}
                     </Text>
                     <Image
@@ -537,7 +608,7 @@ const AttendanceScreen = () => {
                 <CustomSuccessAlert
                   shareImageToWhatsApp={shareOnWhatsApp}
                   visible={shareButton}
-                  onClose={() => setShareButton(false)}
+                  onClose={() => onPressClose()}
                   photoPath={photoPath}
                 />
               </View>

@@ -19,7 +19,6 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import axios from 'axios';
 import ToggleButton from './components/ToggleButton';
 import moment from 'moment';
-import {axiosRequest} from './utils/ApiRequest';
 import Url from './utils/Url';
 import Constant from './utils/Constant';
 import {useSelector} from 'react-redux';

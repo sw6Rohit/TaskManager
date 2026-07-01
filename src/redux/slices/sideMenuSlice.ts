@@ -1,4 +1,4 @@
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import {createSlice, PayloadAction} from '@reduxjs/toolkit';
 import Constant from '../../utils/Constant';
 
 const initialState = {
@@ -14,14 +14,13 @@ export const sideMenuSlice = createSlice({
   // The `reducers` field lets us define reducers and generate associated actions
   reducers: {
     fetchSideBarMenu: (state, action: PayloadAction<any>) => {
-      const { res, loading } = action.payload;
-      state.drawerMenuData = res;
-      state.loading = loading;
+      const {menus} = action.payload;
+      state.drawerMenuData = menus;
     },
   },
 });
 
-export const { fetchSideBarMenu } = sideMenuSlice.actions;
+export const {fetchSideBarMenu} = sideMenuSlice.actions;
 
 // The function below is called a selector and allows us to select a value from
 // the stateSelectors can also be defined inline where they're used instead of

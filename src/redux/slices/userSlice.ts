@@ -1,15 +1,17 @@
 // src/redux/slices/userSlice.ts
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import {createSlice, PayloadAction} from '@reduxjs/toolkit';
 type UserState = {
   userInfo: any | null;
   taskMaster: any | null;
   loginTime: any | null;
+  menus: any | null;
 };
 
 const initialState: UserState = {
   userInfo: null,
   taskMaster: null,
   loginTime: null,
+  menus: null,
 };
 
 const userSlice = createSlice({
@@ -23,6 +25,9 @@ const userSlice = createSlice({
     setTaskMaster(state, action: PayloadAction<any>) {
       state.taskMaster = action.payload;
     },
+    setMenus(state, action: PayloadAction<any>) {
+      state.menus = action.payload;
+    },
     clearUser(state) {
       state.userInfo = null;
       state.taskMaster = null;
@@ -31,5 +36,5 @@ const userSlice = createSlice({
   },
 });
 
-export const { setUser, clearUser, setTaskMaster } = userSlice.actions;
+export const {setUser, clearUser, setTaskMaster, setMenus} = userSlice.actions;
 export default userSlice.reducer;
