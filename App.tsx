@@ -1,4 +1,4 @@
-import React, {useEffect} from 'react';
+import React, {useEffect, useState} from 'react';
 
 import {navigate, navigationRef} from './src/navigation/RootNavigation';
 import {NavigationContainer} from '@react-navigation/native';
@@ -22,9 +22,18 @@ import CallAnalyticsScreen from './src/screens/CallAnalyticsScreen';
 import DrawerNavigator from './src/navigation/DrawerNavigator';
 import WebViewScreen from './src/screens/WebViewScreen';
 import StudentRegistration from './src/screens/StudentRegistration';
+import CallFeedbackModal, {
+  DisconnectedCall,
+} from './src/components/CallFeedbackModal';
+import {
+  clearPendingDisconnectedCall,
+  subscribeToDisconnectedCalls,
+} from './src/utils/CallDisconnectListener';
 
 const Stack = createNativeStackNavigator();
 const App = () => {
+  const [disconnectedCall, setDisconnectedCall] =
+    useState<DisconnectedCall | null>(null);
   const checkIfEmulatorAndDebugging = async () => {
     const isEmulator = await DeviceInfo.isEmulator();
     // console.log('Emulator:', DeviceInfo);
@@ -82,6 +91,16 @@ const App = () => {
     }
   }, [userInfo]);
 
+  useEffect(
+    () => subscribeToDisconnectedCalls(setDisconnectedCall),
+    [],
+  );
+
+  const closeCallFeedback = async () => {
+    setDisconnectedCall(null);
+    await clearPendingDisconnectedCall();
+  };
+
   return (
     <SafeAreaProvider>
       <NavigationContainer ref={navigationRef}>
@@ -111,6 +130,10 @@ const App = () => {
           />
         </Stack.Navigator>
         <FlashMessage position="top" />
+        <CallFeedbackModal
+          call={disconnectedCall}
+          onClose={closeCallFeedback}
+        />
       </NavigationContainer>
     </SafeAreaProvider>
   );

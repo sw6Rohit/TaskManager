@@ -12,6 +12,7 @@ import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
 import com.facebook.react.defaults.DefaultReactNativeHost
 import com.facebook.react.soloader.OpenSourceMergedSoMapping
 import com.facebook.soloader.SoLoader
+import com.swmansion.reanimated.ReanimatedPackage
 
 class MainApplication : Application(), ReactApplication {
 
@@ -23,7 +24,9 @@ class MainApplication : Application(), ReactApplication {
               // add(MyReactNativePackage())
               add(TimestampImagePackage())
               add(LocationPackage())
-              add(SimPackage());
+              add(SimPackage())
+              add(CallDetectorPackage())
+              add(ReanimatedPackage())
             }
 
         override fun getJSMainModuleName(): String = "index"
