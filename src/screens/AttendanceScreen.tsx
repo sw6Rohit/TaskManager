@@ -95,13 +95,18 @@ const AttendanceScreen = () => {
   const [deviceId, setDeviceId] = useState('');
 
   useEffect(() => {
-    const fetchDeviceId = async () => {
+  const fetchDeviceId = async () => {
+    try {
       const id = await DeviceInfo.getUniqueId();
       setDeviceId(id);
-    };
-    getCurrentLocation();
-    fetchDeviceId();
-  }, [officeLatLong]);
+    } catch (error) {
+      console.log('Device ID Error:', error);
+    }
+  };
+
+  fetchDeviceId();
+  getCurrentLocation();
+}, []);
 
   useEffect(() => {
     const getPermissions = async () => {
@@ -121,24 +126,56 @@ const AttendanceScreen = () => {
     setPhotoPath(null); // Discard photo
   };
 
-  const getCurrentLocation = () => {
-    findCoordinates().then(async (coordinates: any) => {
-      const {coords} = coordinates;
+  useEffect(() => {
+  if (
+    Array.isArray(officeLatLong) &&
+    officeLatLong.length > 0
+  ) {
+    getOfficeLocationAddress();
+  }
+}, [officeLatLong]);
 
-      const {fullAddress} = await getAddressFromLatLng(
-        coords?.latitude,
-        coords?.longitude,
+  const getCurrentLocation = async () => {
+  try {
+    console.log('Getting current location...');
+    const coordinates: any = await findCoordinates();
+    console.log('Coordinates Response:', coordinates);
+
+    const latitude = coordinates?.coords?.latitude;
+    const longitude = coordinates?.coords?.longitude;
+    if (
+      latitude === undefined ||
+      latitude === null ||
+      longitude === undefined ||
+      longitude === null
+    ) {
+      console.log('Invalid current coordinates:', coordinates);
+      return;
+    }
+    // First save coordinates
+    setLatLong(coordinates.coords);
+
+    // Current location address
+    try {
+      const addressResponse = await getAddressFromLatLng(
+        latitude,
+        longitude,
       );
-      const fullAddressOffice = await getAddressFromLatLng(
-        officeLatLong[0]?.Latitude,
-        officeLatLong[0]?.Longitude,
+
+      console.log('Current Address:', addressResponse);
+
+      setcurrentLocation(
+        addressResponse?.fullAddress || 'Location not available',
       );
-      console.log(officeLatLong[0], fullAddress, fullAddressOffice, coords);
-      setOfficeAddress(fullAddressOffice?.fullAddress);
-      setcurrentLocation(fullAddress);
-      setLatLong(coords);
-    });
-  };
+    } catch (error) {
+      console.log('Current Address Error:', error);
+      setcurrentLocation('Location not available');
+    }
+
+  } catch (error) {
+    console.log('getCurrentLocation Error:', error);
+  }
+};
   const getGeofence = async () => {
     try {
       const param = {
@@ -167,6 +204,48 @@ const AttendanceScreen = () => {
       setOfficeLatLong([]);
     }
   };
+  const getOfficeLocationAddress = async () => {
+  try {
+    if (
+      !Array.isArray(officeLatLong) ||
+      officeLatLong.length === 0
+    ) {
+      console.log('Office location not available');
+      return;
+    }
+
+    const latitude = Number(officeLatLong[0]?.Latitude);
+    const longitude = Number(officeLatLong[0]?.Longitude);
+
+    console.log('Office Lat Long:', latitude, longitude);
+
+    if (
+      !Number.isFinite(latitude) ||
+      !Number.isFinite(longitude)
+    ) {
+      console.log(
+        'Invalid Office Coordinates:',
+        officeLatLong[0],
+      );
+      return;
+    }
+
+    const addressResponse = await getAddressFromLatLng(
+      latitude,
+      longitude,
+    );
+
+    console.log('Office Address:', addressResponse);
+
+    setOfficeAddress(
+      addressResponse?.fullAddress || 'Office location not available',
+    );
+
+  } catch (error) {
+    console.log('Office Address Error:', error);
+    setOfficeAddress('Office location not available');
+  }
+};
 
   const getTmsStatus = async () => {
     const userId = user.userInfo?.userId;

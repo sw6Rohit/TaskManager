@@ -408,13 +408,15 @@ Any Issue Call 9711612832/32 or email hr@atm.edu.in`,
   const onPressAttendance = async () => {
     // navigation.navigate('AttendanceScreen');
 
-    if (user?.userInfo?.Role_id === '2') {
+    if (user?.userInfo?.entityTypeId != 2) {
       navigation.navigate('AttendanceScreen');
     } else
       await getTmsStatus().then(tmsData => {
         console.log(tmsData?.tmsStatus);
         const status = tmsData?.isMarked?.AttendanceStatus;
         const date = tmsData?.isMarked?.Date;
+        console.log(status, date, user)
+        // return;
         const isTodayMarked = isToday(date);
 
         // ✅ Morning + Evening marked

@@ -31,7 +31,7 @@ export const getCallStats = async () => {
 
     // ✅ Get SIM Info
     const simInfo = getSimDetailsFromCall(log, simList);
-    console.log(simInfo);
+    // console.log(simInfo);
 
     const enrichedLog = {
       ...log,

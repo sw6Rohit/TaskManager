@@ -49,7 +49,7 @@ const CallAnalyticsScreen = () => {
       setStats(data);
 
       // ✅ Call API here
-      const userId = user.userInfo?.AgentId;
+      const userId = user.userInfo?.AgentId || user.userInfo?.linkId;
       await syncCallLogsOnce(userId);
     };
 
