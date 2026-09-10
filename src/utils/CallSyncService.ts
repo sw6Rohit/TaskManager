@@ -20,7 +20,7 @@ const mapCallType = (type: number) => {
   }
 };
 
-export const syncCallLogsOnce = async (userid: any = 0, role_id: any = 0) => {
+const performCallLogSync = async (userid: any = 0, role_id: any = 0) => {
   console.log(userid);
 
   try {
@@ -84,4 +84,12 @@ export const syncCallLogsOnce = async (userid: any = 0, role_id: any = 0) => {
   } catch (error) {
     console.log('❌ Sync Error:', error);
   }
+};
+
+// Serialize foreground and headless requests so they cannot upload the same batch.
+let syncQueue: Promise<void> = Promise.resolve();
+export const syncCallLogsOnce = (userid: any = 0, role_id: any = 0) => {
+  const next = syncQueue.then(() => performCallLogSync(userid, role_id));
+  syncQueue = next.catch(() => {});
+  return next;
 };

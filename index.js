@@ -6,6 +6,7 @@ import { name as appName } from './app.json';
 import { Provider } from 'react-redux';
 import { store, persistor } from './src/redux/store';
 import { PersistGate } from 'redux-persist/integration/react';
+import {syncDisconnectedCallLogs} from './src/utils/BackgroundCallSync';
 
 const RootApp = () => (
   <Provider store={store}>
@@ -17,8 +18,4 @@ const RootApp = () => (
 
 AppRegistry.registerComponent(appName, () => RootApp);
 
-AppRegistry.registerHeadlessTask('CallTask', () => async (data) => {
-  const { number } = data;
-  console.log('[Headless JS] Incoming call from:', number);
-
-});
+AppRegistry.registerHeadlessTask('CallTask', () => syncDisconnectedCallLogs);

@@ -43,6 +43,7 @@ class CallReceiver : BroadcastReceiver() {
             val call = readLatestCall(context, fallbackNumber, startedAt)
 
             CallDetectorModule.publishDisconnectedCall(context, call.toString())
+            CallService.schedule(context)
             preferences.edit()
                 .putBoolean(ACTIVE_CALL_KEY, false)
                 .remove(NUMBER_KEY)
