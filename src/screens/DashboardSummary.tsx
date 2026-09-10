@@ -483,6 +483,7 @@ Any Issue Call 9711612832/32 or email hr@atm.edu.in`,
       <Text style={styles.label3}>{label} </Text>
     </TouchableOpacity>
   );
+  
   return (
     <FlatList
       data={[1]} // dummy data
@@ -650,7 +651,7 @@ Any Issue Call 9711612832/32 or email hr@atm.edu.in`,
               />
             )}
           />
-          <CallAnalyticsScreen />
+          {(user?.userInfo?.userId =="884" || user?.userInfo?.userId=="907") &&<CallAnalyticsScreen />}
         </View>
       }
     />

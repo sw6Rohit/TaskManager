@@ -4,6 +4,9 @@
 
     <application
         android:usesCleartextTraffic="true"
+        android:allowBackup="false"
+        tools:replace="android:allowBackup"
         tools:targetApi="28"
-        tools:ignore="GoogleAppIndexingWarning"/>
+        tools:ignore="GoogleAppIndexingWarning" />
+
 </manifest>

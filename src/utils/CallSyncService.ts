@@ -34,6 +34,9 @@ export const syncCallLogsOnce = async (userid: any = 0, role_id: any = 0) => {
       (call: any) => Number(call.timestamp) > lastTimestamp,
     );
 
+
+    console.log(' new logs ,', newLogs);
+
     if (newLogs.length === 0) {
       console.log('No new logs ,');
       return;
