@@ -16,6 +16,8 @@ import {
   Image,
   Alert,
   ActivityIndicator,
+  PermissionsAndroid,
+  Linking,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import {axiosRequest} from '../utils/ApiRequest';
@@ -30,6 +32,7 @@ import {findCoordinates} from '../utils/Helper';
 import WelcomeModal from '../components/WelcomeModal';
 import CallAnalyticsScreen from './CallAnalyticsScreen';
 import {showMessage} from 'react-native-flash-message';
+import { requestCallLogPermission } from '../components/CallLogService';
 
 const DashboardSummary = () => {
   const user = useSelector((state: RootState) => state?.user);
@@ -276,6 +279,95 @@ const DashboardSummary = () => {
       // Optionally show an Alert here if needed
     }
   };
+const checkCallLogPermissionAndNavigate = async () => {
+  try {
+    // Non-Android
+    if (Platform.OS !== 'android') {
+      onPressAttendance();
+      return;
+    }
+
+    // Check whether already granted
+    const alreadyGranted = await PermissionsAndroid.check(
+      PermissionsAndroid.PERMISSIONS.READ_CALL_LOG,
+    );
+
+    if (alreadyGranted) {
+      onPressAttendance();
+      return;
+    }
+
+    // Show Android native Allow / Deny permission dialog
+    const result = await PermissionsAndroid.request(
+      PermissionsAndroid.PERMISSIONS.READ_CALL_LOG,
+      {
+        title: 'Call Log Permission',
+        message:
+          'Call Log permission is required before you can mark attendance.',
+        buttonPositive: 'Allow',
+        buttonNegative: 'Deny',
+      },
+    );
+
+    console.log('READ_CALL_LOG Permission:', result);
+
+    // ALLOW
+    if (result === PermissionsAndroid.RESULTS.GRANTED) {
+      onPressAttendance();
+      return;
+    }
+
+    // DENY - user can try again
+    if (result === PermissionsAndroid.RESULTS.DENIED) {
+      Alert.alert(
+        'Call Log Permission Required',
+        'You cannot mark attendance without Call Log permission.',
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+          {
+            text: 'Allow Permission',
+            onPress: () => {
+              checkCallLogPermissionAndNavigate();
+            },
+          },
+        ],
+        {cancelable: false},
+      );
+
+      return;
+    }
+
+    // DON'T ASK AGAIN / permanently denied
+    if (result === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN) {
+      showCallLogSettingsAlert();
+      return;
+    }
+  } catch (error) {
+    console.log('Call Log Permission Error:', error);
+
+    Alert.alert(
+      'Permission Error',
+      'Unable to check Call Log permission. Please try again.',
+    );
+  }
+};
+
+const showCallLogSettingsAlert = () => {
+  Alert.alert(
+    'App Installation Error',
+    'Some error occurred while installing the app. Kindly uninstall and reinstall the app.',
+    [
+      {
+        text: 'OK',
+        style: 'default',
+      },
+    ],
+    {cancelable: false},
+  );
+};
 
   const AttendanceRow = ({date, day, inTime, outTime, total, location}) => (
     <View style={styles.attendanceRow}>
@@ -555,7 +647,7 @@ Any Issue Call 9711612832/32 or email hr@atm.edu.in`,
               <View style={{flexDirection: 'column'}}>
                 <TouchableOpacity
                   style={styles.requestBtn}
-                  onPress={() => onPressAttendance()}>
+                  onPress={() => checkCallLogPermissionAndNavigate()}>
                   {loading ? (
                     <ActivityIndicator />
                   ) : (
