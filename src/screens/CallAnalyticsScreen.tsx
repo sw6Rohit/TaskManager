@@ -1,3 +1,9 @@
+import {SimOption} from '../utils/DeviceSimOptions';
+import {
+  fetchEmployeeMobiles,
+  syncEmployeeMobiles,
+  employeeMobileOptions,
+} from '../utils/EmployeeMobileService';
 import React, {useEffect, useState} from 'react';
 import {
   View,
@@ -8,15 +14,12 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
-import {
-  getCallStats,
-  requestCallLogPermission,
-} from '../components/CallLogService';
+import {getCallStats} from '../components/CallLogService';
 import DropdownModal from '../components/DropdownModal';
 import {useSelector} from 'react-redux';
 import {RootState} from '../redux/store';
 import {syncCallLogsOnce} from '../utils/CallSyncService';
-import { axiosRequest } from '../utils/ApiRequest';
+import {axiosRequest} from '../utils/ApiRequest';
 import Constant from '../utils/Constant';
 import moment from 'moment';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -33,16 +36,62 @@ const CallAnalyticsScreen = () => {
   const {taskMaster} = useSelector((state: RootState) => state?.user);
   const user = useSelector((state: RootState) => state?.user);
 
+  const [simOptions, setSimOptions] = useState<SimOption[]>([]);
+  const [selectedSim, setSelectedSim] = useState('');
+  const [simRetry, setSimRetry] = useState(0);
+  const [simMessage, setSimMessage] = useState('Detecting SIMs…');
+
   const [stats, setStats] = useState<any>(null);
   const [userList, setUserList] = useState<any[]>([]);
 
   const [selectedEmp, setSelectedEmp] = useState<any>(null);
+  const dropdownEmployeeId = Number(selectedEmp || 0);
+  
+  useEffect(() => {
+  let mounted = true;
+
+  setSimOptions([]);
+  setSelectedSim('');
+
+  const load = async () => {
+    if (!selectedEmp) {
+      setSimMessage('Select employee to load SIM numbers.');
+      return;
+    }
+
+    try {
+      setSimMessage('Loading SIM numbers...');
+
+      const records = await fetchEmployeeMobiles(Number(selectedEmp));
+
+      if (!mounted) return;
+
+      const options = employeeMobileOptions(records);
+
+      setSimOptions(options);
+      setSimMessage(
+        options.length ? '' : 'No saved SIM numbers for this employee.',
+      );
+    } catch (error: any) {
+      if (mounted) {
+        setSimMessage(
+          error?.message || 'Unable to load employee SIM numbers.',
+        );
+      }
+    }
+  };
+
+  load();
+
+  return () => {
+    mounted = false;
+  };
+}, [selectedEmp, simRetry]);
   const [fromDate, setFromDate] = useState(new Date());
   const [toDate, setToDate] = useState(new Date());
   const [showFromDate, setShowFromDate] = useState(false);
   const [showToDate, setShowToDate] = useState(false);
   const [callTypes, setCallTypes] = useState<any[]>([]);
-
 
   // ✅ PUT FUNCTION HERE
   const getCallTypes = async () => {
@@ -62,7 +111,6 @@ const CallAnalyticsScreen = () => {
     }
   };
 
-
   // ✅ USER DROPDOWN
   useEffect(() => {
     const dataforDropdown =
@@ -74,17 +122,17 @@ const CallAnalyticsScreen = () => {
     setUserList(dataforDropdown);
   }, [taskMaster?.userList]);
 
-
   // ✅ CALL TYPE API
   useEffect(() => {
     getCallTypes();
   }, []);
 
-
   // ✅ LOCAL SYNC
   useEffect(() => {
     const fetchLogs = async () => {
-      const hasPermission = await requestCallLogPermission();
+      const hasPermission = await PermissionsAndroid.check(
+        PermissionsAndroid.PERMISSIONS.READ_CALL_LOG,
+      );
 
       if (!hasPermission) {
         return;
@@ -94,9 +142,7 @@ const CallAnalyticsScreen = () => {
 
       setStats(data);
 
-      const userId =
-        user.userInfo?.AgentId ||
-        user.userInfo?.linkId;
+      const userId = user.userInfo?.AgentId || user.userInfo?.linkId;
 
       await syncCallLogsOnce(userId);
     };
@@ -104,224 +150,244 @@ const CallAnalyticsScreen = () => {
     fetchLogs();
   }, []);
 
-
   // ✅ ONLY AFTER ALL FUNCTIONS / HOOKS
   if (!stats) {
-    return (
-      <ActivityIndicator
-        size="large"
-        style={{marginTop: 100}}
-      />
-    );
+    return <ActivityIndicator size="large" style={{marginTop: 100}} />;
   }
 
   const data = [
-  {
-    title: 'Total Phone Calls',
-    count: stats.total,
-    duration: formatDuration(stats?.durations?.total),
-    icon: 'phone',
-  },
-  {
-    title: 'Incoming Calls',
-    count: stats?.incoming,
-    duration: formatDuration(stats?.durations?.incoming),
-    icon: 'arrow-down-left',
-  },
-  {
-    title: 'Outgoing Calls',
-    count: stats?.outgoing,
-    duration: formatDuration(stats?.durations?.outgoing),
-    icon: 'arrow-up-right',
-  },
-  {
-    title: 'Missed Calls',
-    count: stats.missed,
-    icon: 'phone-missed',
-  },
-  {
-    title: 'Rejected Calls',
-    count: stats.rejected,
-    icon: 'x-circle',
-  },
-  {
-    title: 'Never Attended',
-    count: stats.neverAttended,
-    icon: 'phone-off',
-  },
-];
+    {
+      title: 'Total Phone Calls',
+      count: stats.total,
+      duration: formatDuration(stats?.durations?.total),
+      icon: 'phone',
+    },
+    {
+      title: 'Incoming Calls',
+      count: stats?.incoming,
+      duration: formatDuration(stats?.durations?.incoming),
+      icon: 'arrow-down-left',
+    },
+    {
+      title: 'Outgoing Calls',
+      count: stats?.outgoing,
+      duration: formatDuration(stats?.durations?.outgoing),
+      icon: 'arrow-up-right',
+    },
+    {
+      title: 'Missed Calls',
+      count: stats.missed,
+      icon: 'phone-missed',
+    },
+    {
+      title: 'Rejected Calls',
+      count: stats.rejected,
+      icon: 'x-circle',
+    },
+    {
+      title: 'Never Attended',
+      count: stats.neverAttended,
+      icon: 'phone-off',
+    },
+  ];
 
   const onSelectEmp = async ({value}: any) => {
-  setSelectedEmp(value);
-  await fetchReport(value, fromDate, toDate);
-};
-
-const fetchReport = async (
-  empId = selectedEmp,
-  startDate = fromDate,
-  endDate = toDate,
-) => {
-  try {
-    if (!empId) return;
-
-    const payload = {
-      fromDate: moment(startDate)
-        .startOf('day')
-        .utc()
-        .format('YYYY-MM-DDTHH:mm:ss.SSS[Z]'),
-
-      toDate: moment(endDate)
-        .endOf('day')
-        .utc()
-        .format('YYYY-MM-DDTHH:mm:ss.SSS[Z]'),
-
-      empl_id: Number(empId),
-      callType: '-1',
-    };
-
-    console.log('Payload:', payload);
-
-    const {data} = await axiosRequest(
-      'https://studentapinew.university99.com/api/CallMonitoring/filtered-report',
-      Constant.API_REQUEST_METHOD.POST,
-      payload,
-    );
-
-    if (data?.isSuccess) {
-      const reportList = data?.data || [];
-      setStats(calculateStatsFromApi(reportList));
-    }
-  } catch (error) {
-    console.error('Error fetching report:', error);
-  }
-};
-
-const calculateStatsFromApi = (reportData: any[]) => {
-  const incoming = reportData.filter(
-    (item: any) => Number(item.Call_Type) === 1,
-  );
-
-  const outgoing = reportData.filter(
-    (item: any) => Number(item.Call_Type) === 2,
-  );
-
-  const missed = reportData.filter(
-    (item: any) => Number(item.Call_Type) === 3,
-  );
-
-  const rejected = reportData.filter(
-    (item: any) => Number(item.Call_Type) === 4,
-  );
-
-  const neverAttended = reportData.filter(
-    (item: any) => Number(item.Call_Type) === 5,
-  );
-
-  const sumDuration = (items: any[]) =>
-    items.reduce(
-      (total: number, item: any) =>
-        total + Number(item.Duration_In_Seconds || 0),
-      0,
-    );
-
-  return {
-    total: reportData.length,
-    incoming: incoming.length,
-    outgoing: outgoing.length,
-    missed: missed.length,
-    rejected: rejected.length,
-    neverAttended: neverAttended.length,
-
-    durations: {
-      total: sumDuration(reportData),
-      incoming: sumDuration(incoming),
-      outgoing: sumDuration(outgoing),
-    },
+    setSelectedEmp(value);
+    setSelectedSim('');
+    await fetchReport(value, fromDate, toDate, '');
   };
+
+  const fetchReport = async (
+    empId = selectedEmp,
+    startDate = fromDate,
+    endDate = toDate,
+    simNo = selectedSim,
+  ) => {
+    try {
+      if (!empId) return;
+
+      const payload = {
+  fromDate: moment(startDate)
+    .startOf('day')
+    .utc()
+    .format('YYYY-MM-DDTHH:mm:ss.SSS[Z]'),
+
+  toDate: moment(endDate)
+    .endOf('day')
+    .utc()
+    .format('YYYY-MM-DDTHH:mm:ss.SSS[Z]'),
+
+  empl_id: Number(empId), // SELECTED EMPLOYEE ID
+  callType: '-1',
+
+  ...(simNo ? {simNo} : {}),
 };
+
+      console.log('Payload:', payload);
+
+      const {data} = await axiosRequest(
+        'https://studentapinew.university99.com/api/CallMonitoring/filtered-report',
+        Constant.API_REQUEST_METHOD.POST,
+        payload,
+      );
+
+      if (data?.isSuccess) {
+        const reportList = data?.data || [];
+        setStats(calculateStatsFromApi(reportList));
+      }
+    } catch (error) {
+      console.error('Error fetching report:', error);
+    }
+  };
+
+  const calculateStatsFromApi = (reportData: any[]) => {
+    const incoming = reportData.filter(
+      (item: any) => Number(item.Call_Type) === 1,
+    );
+
+    const outgoing = reportData.filter(
+      (item: any) => Number(item.Call_Type) === 2,
+    );
+
+    const missed = reportData.filter(
+      (item: any) => Number(item.Call_Type) === 3,
+    );
+
+    const rejected = reportData.filter(
+      (item: any) => Number(item.Call_Type) === 4,
+    );
+
+    const neverAttended = reportData.filter(
+      (item: any) => Number(item.Call_Type) === 5,
+    );
+
+    const sumDuration = (items: any[]) =>
+      items.reduce(
+        (total: number, item: any) =>
+          total + Number(item.Duration_In_Seconds || 0),
+        0,
+      );
+
+    return {
+      total: reportData.length,
+      incoming: incoming.length,
+      outgoing: outgoing.length,
+      missed: missed.length,
+      rejected: rejected.length,
+      neverAttended: neverAttended.length,
+
+      durations: {
+        total: sumDuration(reportData),
+        incoming: sumDuration(incoming),
+        outgoing: sumDuration(outgoing),
+      },
+    };
+  };
 
   return (
     <View style={styles.container}>
       <View style={styles.dateRow}>
-  <View style={styles.dateBoxWrapper}>
-    <Text style={styles.label}>From Date</Text>
+        <View style={styles.dateBoxWrapper}>
+          <Text style={styles.label}>From Date</Text>
 
-    <TouchableOpacity
-      style={styles.dateBox}
-      onPress={() => setShowFromDate(true)}>
-      <Icon name="calendar" size={18} color="#333" />
+          <TouchableOpacity
+            style={styles.dateBox}
+            onPress={() => setShowFromDate(true)}>
+            <Icon name="calendar" size={18} color="#333" />
 
-      <Text style={styles.dateText}>
-        {moment(fromDate).format('DD-MMM-YYYY')}
-      </Text>
-    </TouchableOpacity>
-  </View>
+            <Text style={styles.dateText}>
+              {moment(fromDate).format('DD-MMM-YYYY')}
+            </Text>
+          </TouchableOpacity>
+        </View>
 
-  <View style={styles.dateBoxWrapper}>
-    <Text style={styles.label}>To Date</Text>
+        <View style={styles.dateBoxWrapper}>
+          <Text style={styles.label}>To Date</Text>
 
-    <TouchableOpacity
-      style={styles.dateBox}
-      onPress={() => setShowToDate(true)}>
-      <Icon name="calendar" size={18} color="#333" />
+          <TouchableOpacity
+            style={styles.dateBox}
+            onPress={() => setShowToDate(true)}>
+            <Icon name="calendar" size={18} color="#333" />
 
-      <Text style={styles.dateText}>
-        {moment(toDate).format('DD-MMM-YYYY')}
-      </Text>
-    </TouchableOpacity>
-  </View>
-</View>
+            <Text style={styles.dateText}>
+              {moment(toDate).format('DD-MMM-YYYY')}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
 
-{showFromDate && (
-  <DateTimePicker
-    value={fromDate}
-    mode="date"
-    display="default"
-    maximumDate={toDate}
-    onChange={(event, selectedDate) => {
-      setShowFromDate(false);
+      {showFromDate && (
+        <DateTimePicker
+          value={fromDate}
+          mode="date"
+          display="default"
+          maximumDate={toDate}
+          onChange={(event, selectedDate) => {
+            setShowFromDate(false);
 
-      if (selectedDate) {
-        setFromDate(selectedDate);
+            if (selectedDate) {
+              setFromDate(selectedDate);
 
-        if (selectedEmp) {
-          fetchReport(selectedEmp, selectedDate, toDate);
-        }
-      }
-    }}
-  />
-)}
+              if (selectedEmp) {
+                fetchReport(selectedEmp, selectedDate, toDate);
+              }
+            }
+          }}
+        />
+      )}
 
-{showToDate && (
-  <DateTimePicker
-    value={toDate}
-    mode="date"
-    display="default"
-    minimumDate={fromDate}
-    maximumDate={new Date()}
-    onChange={(event, selectedDate) => {
-      setShowToDate(false);
+      {showToDate && (
+        <DateTimePicker
+          value={toDate}
+          mode="date"
+          display="default"
+          minimumDate={fromDate}
+          maximumDate={new Date()}
+          onChange={(event, selectedDate) => {
+            setShowToDate(false);
 
-      if (selectedDate) {
-        setToDate(selectedDate);
+            if (selectedDate) {
+              setToDate(selectedDate);
 
-        if (selectedEmp) {
-          fetchReport(selectedEmp, fromDate, selectedDate);
-        }
-      }
-    }}
-  />
-)}
+              if (selectedEmp) {
+                fetchReport(selectedEmp, fromDate, selectedDate);
+              }
+            }
+          }}
+        />
+      )}
 
-<Text style={styles.label}>Select User</Text>
+      <Text style={styles.label}>Select User</Text>
 
       <DropdownModal
         placeholder={'Select User'}
         data={userList}
-        onSelect={(item:any) => {
-          onSelectEmp(item)
+        onSelect={(item: any) => {
+          onSelectEmp(item);
         }}
       />
+      <Text style={styles.label}>SIM phone number</Text>
+      <DropdownModal
+        key={dropdownEmployeeId}
+        placeholder="All SIMs"
+        data={[{label: 'All SIMs', value: ''}, ...simOptions]}
+        onSelect={(item: SimOption) => {
+          const slot = item.value ? String(item.simSlot) : '';
+          setSelectedSim(slot);
+          if (selectedEmp) {
+            fetchReport(selectedEmp, fromDate, toDate, slot);
+          }
+        }}
+      />
+      {!!simMessage && <Text style={styles.simHint}>{simMessage}</Text>}
+      <TouchableOpacity onPress={() => setSimRetry(value => value + 1)}>
+        <Text style={styles.simHint}>Retry SIM sync</Text>
+      </TouchableOpacity>
+      {!!selectedSim && !selectedEmp && (
+        <Text style={styles.simHint}>
+          Select a user to view their filtered report.
+        </Text>
+      )}
       <FlatList
         data={data}
         numColumns={2}
@@ -343,6 +409,8 @@ const calculateStatsFromApi = (reportData: any[]) => {
 };
 
 const styles = StyleSheet.create({
+  label: {fontSize: 14, color: '#333', marginTop: 12, marginBottom: 6},
+  simHint: {fontSize: 12, color: '#666', marginVertical: 8},
   container: {
     padding: 16,
     backgroundColor: '#F7EDFF',
@@ -377,31 +445,31 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   dateRow: {
-  flexDirection: 'row',
-  justifyContent: 'space-between',
-  marginBottom: 16,
-},
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
 
-dateBoxWrapper: {
-  width: '48%',
-},
+  dateBoxWrapper: {
+    width: '48%',
+  },
 
-dateBox: {
-  height: 48,
-  backgroundColor: '#fff',
-  borderWidth: 1,
-  borderColor: '#ccc',
-  borderRadius: 8,
-  paddingHorizontal: 12,
-  flexDirection: 'row',
-  alignItems: 'center',
-},
+  dateBox: {
+    height: 48,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
 
-dateText: {
-  marginLeft: 8,
-  fontSize: 14,
-  color: '#333',
-},
+  dateText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#333',
+  },
 });
 
 export default CallAnalyticsScreen;

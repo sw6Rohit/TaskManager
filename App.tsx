@@ -30,6 +30,9 @@ import {
   subscribeToDisconnectedCalls,
 } from './src/utils/CallDisconnectListener';
 
+import {configureNativeCallSync} from './src/utils/CallSyncService';
+
+
 const Stack = createNativeStackNavigator();
 const App = () => {
   const [disconnectedCall, setDisconnectedCall] =
@@ -47,7 +50,20 @@ const App = () => {
   const {userInfo, taskMaster} = useSelector((state: RootState) => state?.user);
   const loginTime = useSelector((state: RootState) => state.user.loginTime);
 
-  //  console.log(userInfo, loginTime,taskMaster);
+
+  console.log('[App] Fetching attendance report');
+  console.log('[App] Fetching attendance report');
+  console.log( userInfo?.linkId);
+  
+
+  const syncUserId = userInfo?.linkId || userInfo?.AgentId || 0;
+  useEffect(() => {
+    configureNativeCallSync(syncUserId).catch(() => {
+      console.warn('[CallSync] Unable to save native sync session');
+    });
+  }, [syncUserId]);
+
+
 
   useEffect(() => {
     const currentRoute = navigationRef.getCurrentRoute()?.name;

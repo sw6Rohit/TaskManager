@@ -52,6 +52,28 @@ public class CallDetectorModule extends ReactContextBaseJavaModule {
         promise.resolve(null);
     }
 
+    @ReactMethod
+    public void configureCallSync(String userId, double legacyTimestamp, Promise promise) {
+        try {
+            NativeCallSync.configure(getReactApplicationContext(), userId, legacyTimestamp);
+            promise.resolve(null);
+        } catch (Exception error) {
+            promise.reject("CALL_SYNC_CONFIG", error);
+        }
+    }
+
+    @ReactMethod
+    public void syncCallLogs(Promise promise) {
+        NativeCallSync.executor.execute(() -> {
+            try {
+                promise.resolve(NativeCallSync.sync(getReactApplicationContext()));
+            } catch (Exception error) {
+                CallService.schedule(getReactApplicationContext());
+                promise.reject("CALL_SYNC_FAILED", error);
+            }
+        });
+    }
+
     // Required by NativeEventEmitter.
     @ReactMethod
     public void addListener(String eventName) {

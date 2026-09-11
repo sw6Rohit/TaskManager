@@ -65,7 +65,8 @@ const CallFeedbackModal = ({call, onClose}: Props) => {
 
   return (
     <Modal
-      visible={Boolean(call)}
+    visible={false}
+      //visible={Boolean(call)}
       transparent
       animationType="slide"
       onRequestClose={onClose}>

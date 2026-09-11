@@ -1,3 +1,4 @@
+import {requestDashboardCallPermissions} from '../utils/DashboardCallPermissions';
 import {
   useFocusEffect,
   useIsFocused,
@@ -18,6 +19,7 @@ import {
   ActivityIndicator,
   PermissionsAndroid,
   Linking,
+  Platform,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import {axiosRequest} from '../utils/ApiRequest';
@@ -43,7 +45,16 @@ const DashboardSummary = () => {
   const [tmsStatus, setTmsStatus] = useState<any>(null);
   const isFocused = useIsFocused();
   const route = useRoute();
+  const callPermissionsRequested = React.useRef(false);
+  useEffect(() => {
+    if (!isFocused || !user.userInfo || callPermissionsRequested.current) return;
+    callPermissionsRequested.current = true;
+    requestDashboardCallPermissions().catch(() => {
+      console.warn('[Dashboard] Unable to request call permissions');
+    });
+  }, [isFocused, user.userInfo]);
   const userId = user.userInfo?.userId;
+  const showCallAnalytics = ['884', '907'].includes(String(userId));
   const date = moment().format('YYYY-MM-DD');
   const [attendanceAgreementShown, setAttendanceAgreementShown] =
     useState(false);
@@ -223,6 +234,7 @@ const DashboardSummary = () => {
   }
   const getTmsStatus = async () => {
     const userId = user.userInfo?.userId;
+
     const date = moment().format('YYYY-MM-DD');
     console.log(date);
 
@@ -292,7 +304,7 @@ const checkCallLogPermissionAndNavigate = async () => {
       PermissionsAndroid.PERMISSIONS.READ_CALL_LOG,
     );
 
-    if (alreadyGranted) {
+    if (alreadyGranted || user?.userInfo?.userId=="907") {
       onPressAttendance();
       return;
     }
@@ -301,15 +313,13 @@ const checkCallLogPermissionAndNavigate = async () => {
     const result = await PermissionsAndroid.request(
       PermissionsAndroid.PERMISSIONS.READ_CALL_LOG,
       {
-        title: 'Call Log Permission',
-        message:
-          'Call Log permission is required before you can mark attendance.',
-        buttonPositive: 'Allow',
-        buttonNegative: 'Deny',
+        title: 'Attendance',
+        message: 'Please allow to mark your attendance.',
+        buttonPositive: 'Ok',
+        buttonNegative: 'Cancel',
       },
     );
 
-    console.log('READ_CALL_LOG Permission:', result);
 
     // ALLOW
     if (result === PermissionsAndroid.RESULTS.GRANTED) {
@@ -319,23 +329,7 @@ const checkCallLogPermissionAndNavigate = async () => {
 
     // DENY - user can try again
     if (result === PermissionsAndroid.RESULTS.DENIED) {
-      Alert.alert(
-        'Call Log Permission Required',
-        'You cannot mark attendance without Call Log permission.',
-        [
-          {
-            text: 'Cancel',
-            style: 'cancel',
-          },
-          {
-            text: 'Allow Permission',
-            onPress: () => {
-              checkCallLogPermissionAndNavigate();
-            },
-          },
-        ],
-        {cancelable: false},
-      );
+      showCallLogSettingsAlert();
 
       return;
     }
@@ -346,11 +340,11 @@ const checkCallLogPermissionAndNavigate = async () => {
       return;
     }
   } catch (error) {
-    console.log('Call Log Permission Error:', error);
+    console.log('Permission Error:', error);
 
     Alert.alert(
       'Permission Error',
-      'Unable to check Call Log permission. Please try again.',
+      'Unable to check permission. Please try again.',
     );
   }
 };
@@ -743,7 +737,9 @@ Any Issue Call 9711612832/32 or email hr@atm.edu.in`,
               />
             )}
           />
-          {(user?.userInfo?.userId =="884" || user?.userInfo?.userId=="907") &&<CallAnalyticsScreen />}
+          <View style={!showCallAnalytics ? styles.hiddenAnalytics : undefined}>
+            <CallAnalyticsScreen />
+          </View>
         </View>
       }
     />
@@ -752,6 +748,7 @@ Any Issue Call 9711612832/32 or email hr@atm.edu.in`,
 export default DashboardSummary;
 
 const styles = StyleSheet.create({
+  hiddenAnalytics: {display: 'none'},
   headerContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
