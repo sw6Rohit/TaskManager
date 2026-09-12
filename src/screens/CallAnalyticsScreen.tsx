@@ -230,6 +230,8 @@ const CallAnalyticsScreen = () => {
         Constant.API_REQUEST_METHOD.POST,
         payload,
       );
+      console.log(data);
+      
 
       if (data?.isSuccess) {
         const reportList = data?.data || [];
@@ -342,7 +344,7 @@ const CallAnalyticsScreen = () => {
           mode="date"
           display="default"
           minimumDate={fromDate}
-          maximumDate={new Date()}
+          maximumDate={new Date(Date.now() + 24 * 60 * 60 * 1000)}
           onChange={(event, selectedDate) => {
             setShowToDate(false);
 
