@@ -42,6 +42,10 @@ export default function CustomDrawer(props: any) {
       case '/profile':
         props.navigation.navigate('UserProfile');
         break;
+      
+      case '/admin/LeadDashboard':
+        props.navigation.navigate('LeadDashboardScreen');
+        break;
 
       default:
         console.log('No route mapped for:', item.menuUrl);

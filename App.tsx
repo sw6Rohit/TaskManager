@@ -51,10 +51,6 @@ const App = () => {
   const loginTime = useSelector((state: RootState) => state.user.loginTime);
 
 
-  console.log('[App] Fetching attendance report');
-  console.log('[App] Fetching attendance report');
-  console.log( userInfo?.linkId);
-  
 
   const syncUserId = userInfo?.linkId || userInfo?.AgentId || 0;
   useEffect(() => {

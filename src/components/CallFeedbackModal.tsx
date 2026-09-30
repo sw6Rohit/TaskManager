@@ -1,7 +1,15 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import {showMessage} from 'react-native-flash-message';
+import axios from 'axios';
+import {Picker} from '@react-native-picker/picker';
+import {useSelector} from 'react-redux';
+import {RootState} from '../redux/store';
+import {resolveLeadCall} from '../utils/LeadCallContext';
+
 import DateTimePicker from '@react-native-community/datetimepicker';
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {
+  ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -25,87 +33,213 @@ type Props = {
   onClose: () => void;
 };
 
-const FEEDBACK_STORAGE_KEY = 'CALL_FEEDBACK_RECORDS';
-const statuses = ['Connected', 'Not interested', 'Call back', 'No answer'];
-
 const CallFeedbackModal = ({call, onClose}: Props) => {
   const [remarks, setRemarks] = useState('');
-  const [status, setStatus] = useState('Connected');
+  const [expectedUpdatedAt, setExpectedUpdatedAt] = useState<string | null>(
+    null,
+  );
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
+  const [pickerMode, setPickerMode] = useState<'date' | 'time'>('date');
+  const user = useSelector((state: RootState) => state.user.userInfo);
+  const [leadId, setLeadId] = useState<number | null>(null);
+  const [responses, setResponses] = useState<any[]>([]);
+  const [responseId, setResponseId] = useState<number | null>(null);
+  const [loadingResponses, setLoadingResponses] = useState(false);
+  const [responseError, setResponseError] = useState('');
+  const [retry, setRetry] = useState(0);
+  const selectedResponse = responses.find(
+    item => Number(item.ResponseId) === responseId,
+  );
+  useEffect(() => {
+    const controller = new AbortController();
+    setResponses([]);
+    setResponseId(null);
+    setLeadId(null);
+    setExpectedUpdatedAt(null);
+    setResponseError('');
+    if (!call) return () => controller.abort();
+    setLoadingResponses(true);
+    const load = async () => {
+      try {
+        const id = await resolveLeadCall();
+        console.log(id);
+
+        if (!id)
+          throw new Error(
+            'No lead linked to this call. Start the call from the Lead Dashboard.',
+          );
+        if (controller.signal.aborted) return;
+        setLeadId(id);
+        const {data} = await axios.post(
+          'https://studentapinew.university99.com/api/Lead/L01LeadResponse/get-lead-response-page',
+          {leadId: id},
+          {
+            timeout: 20000,
+            signal: controller.signal,
+            headers: user?.token ? {Authorization: `Bearer ${user.token}`} : {},
+          },
+        );
+        if (data?.isSuccess === false)
+          throw new Error(data.message || 'Unable to load responses.');
+        if (!Array.isArray(data?.data?.allowedResponses))
+          throw new Error('Unexpected lead response format.');
+        if (!controller.signal.aborted) {
+          setResponses(data.data.allowedResponses);
+          setExpectedUpdatedAt(
+            data.data.lead?.Updated_at ?? data.data.lead?.updatedAt ?? null,
+          );
+          if (!data.data.allowedResponses.length)
+            setResponseError('No responses available for this lead.');
+        }
+      } catch (error: any) {
+        if (!controller.signal.aborted)
+          setResponseError(error.message || 'Unable to load responses.');
+      } finally {
+        if (!controller.signal.aborted) setLoadingResponses(false);
+      }
+    };
+    load();
+    return () => controller.abort();
+  }, [call?.phoneNumber, call?.timestamp, user?.userId, user?.token, retry]);
   const [followUpDate, setFollowUpDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   useEffect(() => {
     if (call) {
       setRemarks('');
-      setStatus(call.callType === 'MISSED' ? 'No answer' : 'Connected');
+      setShowDatePicker(false);
+
       setFollowUpDate(new Date());
     }
   }, [call]);
 
   const saveFeedback = async () => {
-    if (!call) {
+    if (!call || savingRef.current) {
       return;
     }
 
-    const existing = await AsyncStorage.getItem(FEEDBACK_STORAGE_KEY);
-    const feedbackRecords = existing ? JSON.parse(existing) : [];
-    feedbackRecords.push({
-      ...call,
-      remarks: remarks.trim(),
-      status,
-      followUpDate: followUpDate.toISOString(),
-      submittedAt: new Date().toISOString(),
+    if (loadingResponses || !selectedResponse) {
+      Alert.alert('Select a response', 'Choose a lead response before saving.');
+      return;
+    }
+    if (selectedResponse.RemarkRequired && !remarks.trim()) {
+      Alert.alert('Remarks required', 'Enter remarks for this response.');
+      return;
+    }
+    savingRef.current = true;
+    console.log({
+      leadId,
+      responseId,
+      manualFollowUpDateTime: followUpDate.toISOString(),
+      manualRemark: remarks.trim(),
+      assignedUserId: null,
+      mentorUserId: null,
+      selectedCourseId: null,
+      actionBy: Number(user?.userId) || null,
+      ipAddress: null,
+      expectedUpdatedAt,
     });
-    await AsyncStorage.setItem(
-      FEEDBACK_STORAGE_KEY,
-      JSON.stringify(feedbackRecords),
-    );
-    onClose();
+
+    setSaving(true);
+    try {
+      const {data} = await axios.post(
+        'https://studentapinew.university99.com/api/Lead/L01LeadResponse/update-lead-response',
+        {
+          leadId,
+          responseId,
+          manualFollowUpDateTime: followUpDate.toISOString(),
+          manualRemark: remarks.trim(),
+          assignedUserId: null,
+          mentorUserId: null,
+          selectedCourseId: null,
+          actionBy: Number(user?.userId) || null,
+          ipAddress: null,
+          expectedUpdatedAt,
+        },
+        {
+          timeout: 20000,
+          headers: user?.token ? {Authorization: `Bearer ${user.token}`} : {},
+        },
+      );
+      console.log(data);
+
+      if (data?.isSuccess !== true) {
+        throw new Error(
+          data?.message ||
+            'The server did not confirm that feedback was saved.',
+        );
+      }
+      onClose();
+      showMessage({
+        message: data.message || 'Feedback saved successfully.',
+        type: 'success',
+        duration: 3000,
+      });
+    } catch (error: any) {
+      Alert.alert(
+        'Feedback not saved',
+        error.response?.data?.message || error.message || 'Please try again.',
+      );
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
   };
 
   return (
     <Modal
-    visible={false}
-      //visible={Boolean(call)}
+      visible={Boolean(call)}
       transparent
       animationType="slide"
-      onRequestClose={onClose}>
+      onRequestClose={() => {}}>
       <KeyboardAvoidingView
         style={styles.overlay}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={styles.card}>
+          <TouchableOpacity
+            accessibilityLabel="Close feedback"
+            accessibilityRole="button"
+            style={styles.closeButton}
+            onPress={onClose}>
+            <Text style={styles.closeText}>×</Text>
+          </TouchableOpacity>
           <ScrollView keyboardShouldPersistTaps="handled">
+            <Text selectable style={styles.label}>
+              Lead ID: {leadId ?? '—'}
+            </Text>
             <Text style={styles.title}>Call feedback</Text>
-            <Text style={styles.subtitle}>Add details for the completed call</Text>
+            <Text style={styles.subtitle}>
+              Add details for the completed call
+            </Text>
 
-            <Text style={styles.label}>Phone number</Text>
-            <TextInput
-              style={[styles.input, styles.disabledInput]}
-              editable={false}
-              value={call?.phoneNumber || 'Unknown number'}
-            />
-
-            <Text style={styles.label}>Call status</Text>
-            <View style={styles.statusList}>
-              {statuses.map(item => (
-                <TouchableOpacity
-                  key={item}
-                  style={[
-                    styles.statusButton,
-                    status === item && styles.selectedStatus,
-                  ]}
-                  onPress={() => setStatus(item)}>
-                  <Text
-                    style={[
-                      styles.statusText,
-                      status === item && styles.selectedStatusText,
-                    ]}>
-                    {item}
-                  </Text>
+            <Text style={styles.label}>Response</Text>
+            {loadingResponses ? (
+              <ActivityIndicator />
+            ) : responseError ? (
+              <View>
+                <Text>{responseError}</Text>
+                <TouchableOpacity onPress={() => setRetry(value => value + 1)}>
+                  <Text style={styles.label}>Retry responses</Text>
                 </TouchableOpacity>
-              ))}
-            </View>
-
+              </View>
+            ) : (
+              <Picker
+                selectedValue={responseId}
+                accessibilityLabel="Lead response"
+                onValueChange={value =>
+                  setResponseId(value == null ? null : Number(value))
+                }>
+                <Picker.Item label="Select response" value={null} />
+                {responses.map(item => (
+                  <Picker.Item
+                    key={String(item.MapId ?? item.ResponseId)}
+                    label={item.ResponseName}
+                    value={Number(item.ResponseId)}
+                  />
+                ))}
+              </Picker>
+            )}
             <Text style={styles.label}>Remarks</Text>
             <TextInput
               style={[styles.input, styles.remarks]}
@@ -118,15 +252,32 @@ const CallFeedbackModal = ({call, onClose}: Props) => {
             <Text style={styles.label}>Follow-up date</Text>
             <TouchableOpacity
               style={styles.input}
-              onPress={() => setShowDatePicker(true)}>
+              onPress={() => {
+                setPickerMode('date');
+                setShowDatePicker(true);
+              }}>
               <Text style={styles.dateText}>
                 {followUpDate.toLocaleDateString()}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.input}
+              onPress={() => {
+                setPickerMode('time');
+                setShowDatePicker(true);
+              }}>
+              <Text style={styles.dateText}>
+                Time:{' '}
+                {followUpDate.toLocaleTimeString([], {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
               </Text>
             </TouchableOpacity>
             {showDatePicker && (
               <DateTimePicker
                 value={followUpDate}
-                mode="date"
+                mode={pickerMode}
                 minimumDate={new Date()}
                 onChange={(_, date) => {
                   setShowDatePicker(Platform.OS === 'ios');
@@ -138,11 +289,18 @@ const CallFeedbackModal = ({call, onClose}: Props) => {
             )}
 
             <View style={styles.actions}>
-              <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
-                <Text style={styles.cancelText}>Later</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.saveButton} onPress={saveFeedback}>
-                <Text style={styles.saveText}>Save feedback</Text>
+              <TouchableOpacity
+                disabled={saving || loadingResponses || !selectedResponse}
+                style={[
+                  styles.saveButton,
+                  (saving || loadingResponses || !selectedResponse) && {
+                    opacity: 0.5,
+                  },
+                ]}
+                onPress={saveFeedback}>
+                <Text style={styles.saveText}>
+                  {saving ? 'Saving…' : 'Save feedback'}
+                </Text>
               </TouchableOpacity>
             </View>
           </ScrollView>
@@ -153,6 +311,14 @@ const CallFeedbackModal = ({call, onClose}: Props) => {
 };
 
 const styles = StyleSheet.create({
+  closeButton: {
+    alignSelf: 'flex-end',
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  closeText: {fontSize: 30, color: '#333'},
   overlay: {
     flex: 1,
     justifyContent: 'flex-end',

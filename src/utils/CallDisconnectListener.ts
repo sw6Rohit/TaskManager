@@ -1,3 +1,4 @@
+import {clearLeadCall} from './LeadCallContext';
 import {
   AppState,
   NativeEventEmitter,
@@ -66,4 +67,5 @@ export const subscribeToDisconnectedCalls = (
 
 export const clearPendingDisconnectedCall = async () => {
   await callDetector?.clearPendingCall();
+  await clearLeadCall();
 };

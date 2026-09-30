@@ -366,7 +366,6 @@ const AttendanceScreen = () => {
     //   }
     // }
     setLoading(true);
-    console.log(distance);
 
     if (!distance[0]?.isWithinRadius && user?.userInfo?.entityTypeId != 1) {
       Alert.alert(

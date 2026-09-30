@@ -66,6 +66,7 @@ const DashboardSummary = () => {
   const [IscheckLimit, setIScheckLimit] = useState<any>({});
   const [loading, setLoading] = useState<any>(false);
 
+
   const tmsUrl = `http://61.246.33.108:8069/api/tms/status?userId=${userId}&date=${date}`;
   const attendanceUrl = `http://61.246.33.108:8069/api/attendance/latest?userId=${userId}`;
 
@@ -131,11 +132,13 @@ const DashboardSummary = () => {
       };
 
       await axiosRequest(
-        'http://61.246.33.108:8069/api/attendance/getreport',
+        'https://studentapinew.university99.com/api/hrms/HRMS04GetLatestAttendanceStatus/getlateststatus',
         Constant.API_REQUEST_METHOD.POST,
         param,
       ).then(({data}) => {
-        // console.log(data);
+        if(data?.isSuccess)
+          setisMarked(data?.data[0])
+        console.log(data?.data[0]);
       });
     } catch (error) {
       console.log(error);
@@ -196,15 +199,13 @@ const DashboardSummary = () => {
   const getDistancefromOffice = async () => {
     const userLocation: any = await findCoordinates().then(
       async (coordinates: any) => {
-        console.log(coordinates?.coords);
-
         const distance = getDistanceFromLatLonInKm(
           coordinates?.coords.latitude,
           coordinates?.coords.longitude,
           28.693722,
           77.171779,
         );
-        console.log(distance); // or setState
+        // console.log(distance); // or setState
         // setCampaign(campaignWithDistance)
         // return campaignWithDistance;
       },
@@ -240,7 +241,7 @@ const DashboardSummary = () => {
 
     setLoading(true);
     const tmsUrl = `http://61.246.33.108:8069/api/tms/status?userId=${userId}&date=${date}`;
-    const attendanceUrl = `http://61.246.33.108:8069/api/attendance/latest?userId=${userId}`;
+    const attendanceUrl = `https://studentapinew.university99.com/api/hrms/HRMS04GetLatestAttendanceStatus/getlateststatus`;
     const checkLimit = `http://61.246.33.108:8069/api/tasks/check-limit?responsiblePersonId=${userId}`;
     const completedCount = `http://61.246.33.108:8069/api/tasks/other/completed-count?responsiblePersonId=${userId}`;
 
@@ -252,7 +253,7 @@ const DashboardSummary = () => {
         completedCountRes,
       ] = await Promise.all([
         axiosRequest(tmsUrl, Constant.API_REQUEST_METHOD.GET),
-        axiosRequest(attendanceUrl, Constant.API_REQUEST_METHOD.GET),
+        axiosRequest(attendanceUrl, Constant.API_REQUEST_METHOD.POST,{"userId": userId}),
         axiosRequest(checkLimit, Constant.API_REQUEST_METHOD.GET),
         axiosRequest(
           completedCount,
@@ -261,9 +262,10 @@ const DashboardSummary = () => {
           60000,
         ),
       ]).finally(() => {
+        console.log(attendanceResponse)
         setLoading(false);
       });
-      console.log(tmsResponse);
+      console.log(attendanceResponse);
 
       if (tmsResponse?.data) {
         setTmsStatus(tmsResponse.data.TMSStatus);
@@ -440,7 +442,7 @@ const showCallLogSettingsAlert = () => {
       label: 'Lead Entry',
       icon: 'calendar-remove',
       color: '#DC2626',
-      nav: 'StudentList',
+      nav: 'LeadDashboardScreen',
     },
     {id: '3', label: 'Payroll', icon: 'checkbook', color: '#D97706', nav: ''},
   ];
@@ -698,7 +700,7 @@ Any Issue Call 9711612832/32 or email hr@atm.edu.in`,
           </View>
 
           {/* Project Summary Cards */}
-          <View style={styles.summaryGrid}>
+          {/* <View style={styles.summaryGrid}>
             <SummaryCard label="All" count="45" color="#66BB6A" />
             <SummaryCard label="In Progress" count="24" color="#7E57C2" />
             <SummaryCard label="DueToday" count="56" color="#AB47BC" />
@@ -708,7 +710,7 @@ Any Issue Call 9711612832/32 or email hr@atm.edu.in`,
             <SummaryCard label="Refused" count="45" color="#66BB6A" />
             <SummaryCard label="Deleted" count="45" color="#66BB6A" />
             <SummaryCard label="Rejected" count="45" color="#66BB6A" />
-          </View>
+          </View> */}
           <FlatList
             data={cardData}
             horizontal
@@ -724,7 +726,7 @@ Any Issue Call 9711612832/32 or email hr@atm.edu.in`,
             )}
           />
 
-          <FlatList
+          {/* <FlatList
             data={requestData}
             horizontal
             keyExtractor={item => item.id}
@@ -736,7 +738,7 @@ Any Issue Call 9711612832/32 or email hr@atm.edu.in`,
                 color={item.color}
               />
             )}
-          />
+          /> */}
           <View style={!showCallAnalytics ? styles.hiddenAnalytics : undefined}>
             <CallAnalyticsScreen />
           </View>

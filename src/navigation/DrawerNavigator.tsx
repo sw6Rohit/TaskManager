@@ -1,3 +1,4 @@
+import LeadDashboardScreen from '../screens/LeadDashboardScreen';
 import React from 'react';
 import {createDrawerNavigator} from '@react-navigation/drawer';
 
@@ -18,6 +19,11 @@ export default function DrawerNavigator() {
       }}
       drawerContent={props => <CustomDrawer {...props} />}>
       <Drawer.Screen name="Dashboard" component={DashboardSummary} />
+      <Drawer.Screen
+        name="LeadDashboardScreen"
+        component={LeadDashboardScreen}
+        options={{title: 'Lead Dashboard'}}
+      />
 
       <Drawer.Screen name="Attendance" component={AttendanceScreen} />
 
