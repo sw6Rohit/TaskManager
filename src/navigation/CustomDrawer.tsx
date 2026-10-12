@@ -6,7 +6,7 @@ import {RootState} from '../redux/store';
 import Icon from 'react-native-vector-icons/Feather';
 
 export default function CustomDrawer(props: any) {
-  const {menus} = useSelector((state: RootState) => state.user);
+  const {menus, userInfo} = useSelector((state: RootState) => state.user);
 
   const [expandedMenus, setExpandedMenus] = useState<number[]>([]);
 
@@ -113,8 +113,17 @@ export default function CustomDrawer(props: any) {
       </View>
 
       <View style={styles.divider} />
-
       {treeMenus.map(menu => renderMenu(menu))}
+      {Number(userInfo?.entityTypeId) === 4 && (
+        <TouchableOpacity
+          style={styles.menuRow}
+          onPress={() => props.navigation.navigate('StudentFees')}>
+          <View style={styles.leftContainer}>
+            <Icon name="credit-card" size={20} color="#344054" />
+            <Text style={styles.menuText}>My Fees</Text>
+          </View>
+        </TouchableOpacity>
+      )}
     </DrawerContentScrollView>
   );
 }

@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {
   View,
   Text,
@@ -8,12 +8,14 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
+  Switch,
 } from 'react-native';
 import {Formik} from 'formik';
 import * as Yup from 'yup';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import {axiosRequest} from '../utils/ApiRequest';
 import Constant from '../utils/Constant';
+import { Picker } from '@react-native-picker/picker';
 
 const RegisterSchema = Yup.object().shape({
   firstName: Yup.string().required('First Name is required'),
@@ -40,10 +42,21 @@ const StudentRegistration = () => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [sources, setSources] = useState<any[]>([]);
+const [campaigns, setCampaigns] = useState<any[]>([]);
+const [references, setReferences] = useState<any[]>([]);
+
+const [campaignAllowed, setCampaignAllowed] = useState(false);
+const [referenceAllowed, setReferenceAllowed] = useState(false);
+const [referenceLabel, setReferenceLabel] = useState('Reference');
 
   const handleRegister = async (values: any) => {
     try {
       setLoading(true);
+      const selectedSource = sources.find( x => Number(x.SourceId) === Number(values.sourceId),);
+      const selectedCampaign = campaigns.find(  x => String(x.id) === String(values.campaignId),);
+
+      const selectedReference = references.find( x => String(x.id) === String(values.sourceReferenceId),);
 
       const payload = {
         actionBy: 0,
@@ -61,6 +74,32 @@ const StudentRegistration = () => {
 
         oldPassword: '',
         newPassword: '',
+
+        sourceId: Number(values.sourceId),
+
+campaignId: referenceAllowed
+  ? values.sourceReferenceId
+    ? String(values.sourceReferenceId)
+    : null
+  : values.campaignId
+    ? String(values.campaignId)
+    : null,
+
+sourceReferenceId: values.sourceReferenceId
+  ? Number(values.sourceReferenceId)
+  : null,
+
+source: selectedSource?.SourceName || '',
+campaign: selectedCampaign?.title || '',
+sourceReference: selectedReference?.display || '',
+
+seatCategoryId: Number(values.seatCategoryId),
+admissionTypeId: Number(values.admissionTypeId),
+
+isRegFeeReq: Boolean(values.isRegFeeReq),
+isApplicationFeeReq: Boolean(values.isApplicationFeeReq),
+
+leadId: 0,
 
         password: values.password,
 
@@ -84,7 +123,7 @@ const StudentRegistration = () => {
       ).then(({data}) => {
         console.log('Attendance Response:', data);
         if (data?.isSuccess) {
-          Alert.alert('Success', 'Registration Created Successfully');
+          Alert.alert('Success', data?.data?.[0]?.message ?? 'Success');
         }
       });
     } catch (error) {
@@ -94,6 +133,82 @@ const StudentRegistration = () => {
       setLoading(false);
     }
   };
+  const SOURCE_API =
+  'https://studentapinew.university99.com/api/lead/L07Source/operation';
+
+const CAMPAIGN_API =
+  'https://studentapinew.university99.com/api/lead/L07Campaign/operation';
+
+useEffect(() => {
+  loadSources();
+}, []);
+
+const loadSources = async () => {
+  const {data} = await axiosRequest(
+    SOURCE_API,
+    Constant.API_REQUEST_METHOD.POST,
+    {type: 5},
+  );
+
+  setSources(data?.data || []);
+};
+
+const loadCampaigns = async (sourceId: any) => {
+  const {data} = await axiosRequest(
+    CAMPAIGN_API,
+    Constant.API_REQUEST_METHOD.POST,
+    {
+      type: 10,
+      lead_source: Number(sourceId),
+    },
+  );
+
+  setCampaigns(data?.data || []);
+};
+
+const loadReferences = async (sourceId: any) => {
+  const {data} = await axiosRequest(
+    SOURCE_API,
+    Constant.API_REQUEST_METHOD.POST,
+    {
+      type: 11,
+      sourceId: Number(sourceId),
+      referenceSearch: null,
+    },
+  );
+
+  setReferences(data?.data || []);
+};
+
+const sourceChanged = async (
+  sourceId: any,
+  setFieldValue: any,
+) => {
+  setFieldValue('sourceId', sourceId);
+  setFieldValue('campaignId', '');
+  setFieldValue('sourceReferenceId', '');
+
+  const source = sources.find(
+    x => Number(x.SourceId) === Number(sourceId),
+  );
+
+  const campaign =
+    Number(source?.CampaignAllowed) === 1;
+
+  const reference =
+    Number(source?.ReferenceAllowed) === 1;
+
+  setCampaignAllowed(campaign);
+  setReferenceAllowed(reference);
+
+  setReferenceLabel(
+    source?.ReferenceLabel ||
+      `${source?.SourceName || ''} Reference`,
+  );
+
+  if (campaign) await loadCampaigns(sourceId);
+  if (reference) await loadReferences(sourceId);
+};
 
   const renderError = (error?: string) => {
     if (!error) {
@@ -119,20 +234,32 @@ const StudentRegistration = () => {
 
       <Formik
         initialValues={{
-          firstName: '',
-          middleName: '',
-          lastName: '',
-          mobileNo: '',
-          emailId: '',
-          password: '',
-          confirmPassword: '',
-        }}
+  firstName: '',
+  middleName: '',
+  lastName: '',
+  mobileNo: '',
+  emailId: '',
+
+  sourceId: '',
+  campaignId: '',
+  sourceReferenceId: '',
+
+  seatCategoryId: 2,
+  admissionTypeId: 1,
+
+  isRegFeeReq: true,
+  isApplicationFeeReq: true,
+
+  password: '',
+  confirmPassword: '',
+}}
         validationSchema={RegisterSchema}
         onSubmit={handleRegister}>
         {({
           handleChange,
           handleBlur,
           handleSubmit,
+          setFieldValue,
           values,
           touched,
           errors,
@@ -230,6 +357,141 @@ const StudentRegistration = () => {
             </View>
 
             {touched.emailId && renderError(errors.emailId)}
+
+            <Text style={styles.label}>Source</Text>
+
+<View style={styles.inputBox}>
+  <Picker
+    style={{flex: 1}}
+    selectedValue={values.sourceId}
+    onValueChange={value =>
+      sourceChanged(value, setFieldValue)
+    }>
+
+    <Picker.Item label="Select Source" value="" />
+
+    {sources.map(x => (
+      <Picker.Item
+        key={x.SourceId}
+        label={x.SourceName}
+        value={String(x.SourceId)}
+      />
+    ))}
+  </Picker>
+</View>
+
+
+{campaignAllowed && (
+  <>
+    <Text style={styles.label}>Campaign</Text>
+
+    <View style={styles.inputBox}>
+      <Picker
+        style={{flex: 1}}
+        selectedValue={values.campaignId}
+        onValueChange={value =>
+          setFieldValue('campaignId', value)
+        }>
+
+        <Picker.Item label="Select Campaign" value="" />
+
+        {campaigns.map(x => (
+          <Picker.Item
+            key={x.id}
+            label={x.title}
+            value={String(x.id)}
+          />
+        ))}
+      </Picker>
+    </View>
+  </>
+)}
+
+
+{referenceAllowed && (
+  <>
+    <Text style={styles.label}>{referenceLabel}</Text>
+
+    <View style={styles.inputBox}>
+      <Picker
+        style={{flex: 1}}
+        selectedValue={values.sourceReferenceId}
+        onValueChange={value =>
+          setFieldValue('sourceReferenceId', value)
+        }>
+
+        <Picker.Item
+          label={`Select ${referenceLabel}`}
+          value=""
+        />
+
+        {references.map(x => (
+          <Picker.Item
+            key={x.id}
+            label={x.display}
+            value={String(x.id)}
+          />
+        ))}
+      </Picker>
+    </View>
+  </>
+)}
+
+
+<Text style={styles.label}>Seat Category</Text>
+
+<View style={styles.inputBox}>
+  <Picker
+    style={{flex: 1}}
+    selectedValue={values.seatCategoryId}
+    onValueChange={value =>
+      setFieldValue('seatCategoryId', value)
+    }>
+
+    <Picker.Item label="Government" value={1} />
+    <Picker.Item label="PPP" value={2} />
+  </Picker>
+</View>
+
+
+<Text style={styles.label}>Admission Status</Text>
+
+<View style={styles.inputBox}>
+  <Picker
+    style={{flex: 1}}
+    selectedValue={values.admissionTypeId}
+    onValueChange={value =>
+      setFieldValue('admissionTypeId', value)
+    }>
+
+    <Picker.Item label="Freeze" value={1} />
+    <Picker.Item label="Float" value={2} />
+  </Picker>
+</View>
+
+
+<View style={styles.switchRow}>
+  <Text>Registration Fee Required</Text>
+
+  <Switch
+    value={values.isRegFeeReq}
+    onValueChange={value =>
+      setFieldValue('isRegFeeReq', value)
+    }
+  />
+</View>
+
+
+<View style={styles.switchRow}>
+  <Text>Application Fee Required</Text>
+
+  <Switch
+    value={values.isApplicationFeeReq}
+    onValueChange={value =>
+      setFieldValue('isApplicationFeeReq', value)
+    }
+  />
+</View>
 
             {/* Password */}
 
@@ -381,6 +643,16 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
   },
+  switchRow: {
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  marginTop: 15,
+  padding: 12,
+  borderWidth: 1,
+  borderColor: '#CBD5E1',
+  borderRadius: 12,
+},
 });
 
 export default StudentRegistration;

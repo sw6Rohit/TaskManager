@@ -365,7 +365,7 @@ const showCallLogSettingsAlert = () => {
   );
 };
 
-  const AttendanceRow = ({date, day, inTime, outTime, total, location}) => (
+  const AttendanceRow = ({date, day, inTime, outTime, total, location}:any) => (
     <View style={styles.attendanceRow}>
       {/* Date Box */}
       <View style={styles.dateBox}>
@@ -398,7 +398,7 @@ const showCallLogSettingsAlert = () => {
       </View>
     </View>
   );
-  const AttendanceStatCard = ({label, count, color, bgColor}) => (
+  const AttendanceStatCard = ({label, count, color, bgColor}:any) => (
     <View
       style={[styles.card2, {borderTopColor: color, backgroundColor: bgColor}]}>
       <Text style={[styles.label, {color}]}>{label}</Text>
@@ -406,7 +406,7 @@ const showCallLogSettingsAlert = () => {
     </View>
   );
 
-  const SummaryCard = ({label, count, color}) => (
+  const SummaryCard = ({label, count, color}:any) => (
     <TouchableOpacity
       onPress={() => navigation.navigate('TaskSummary')}
       style={[styles.card, {backgroundColor: color}]}>
@@ -439,12 +439,12 @@ const showCallLogSettingsAlert = () => {
     },
     {
       id: '2',
-      label: 'Lead Entry',
+      label: 'Lead Dashboard',
       icon: 'calendar-remove',
       color: '#DC2626',
       nav: 'LeadDashboardScreen',
     },
-    {id: '3', label: 'Payroll', icon: 'checkbook', color: '#D97706', nav: ''},
+    {id: '3', label: 'Lead Entry', icon: 'checkbook', color: '#D97706', nav: 'StudentRegistration'},
   ];
 
   const hasPendingLimitIssue = tmsData =>

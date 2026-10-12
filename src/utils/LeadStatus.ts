@@ -1,38 +1,23 @@
+import moment from 'moment';
+
 // Date-only and timezone-free API timestamps represent device-local time.
 export const leadUpdateDate = (value: unknown): Date | null => {
   if (typeof value !== 'string' || !value.trim()) return null;
-  const text = value.trim();
-  const local =
-    /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?)?$/.exec(
-      text,
-    );
-  const date = local
-    ? new Date(
-        +local[1],
-        +local[2] - 1,
-        +local[3],
-        +(local[4] || 0),
-        +(local[5] || 0),
-        +(local[6] || 0),
-      )
-    : new Date(text);
-  if (!Number.isFinite(date.getTime())) return null;
-  if (
-    local &&
-    (date.getFullYear() !== +local[1] ||
-      date.getMonth() !== +local[2] - 1 ||
-      date.getDate() !== +local[3])
-  )
-    return null;
-  return date;
+  const date = moment(value.trim(), moment.ISO_8601, true);
+  return date.isValid() ? date.toDate() : null;
 };
 
-export const wasLeadUpdatedToday = (value: unknown, now = new Date()) => {
+export const wasLeadUpdatedToday = (
+  value: unknown,
+  now: string | Date = moment().format(),
+) => {
   const date = leadUpdateDate(value);
+  const today = typeof now === 'string'
+    ? moment(now, [moment.ISO_8601, 'DD-MM-YYYY'], true)
+    : moment(now);
   return (
     date != null &&
-    date.getFullYear() === now.getFullYear() &&
-    date.getMonth() === now.getMonth() &&
-    date.getDate() === now.getDate()
+    today.isValid() &&
+    moment(date).format('YYYY-MM-DD') === today.format('YYYY-MM-DD')
   );
 };

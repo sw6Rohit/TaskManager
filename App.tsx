@@ -22,6 +22,7 @@ import CallAnalyticsScreen from './src/screens/CallAnalyticsScreen';
 import DrawerNavigator from './src/navigation/DrawerNavigator';
 import WebViewScreen from './src/screens/WebViewScreen';
 import StudentRegistration from './src/screens/StudentRegistration';
+import StudentFees from './src/screens/StudentFees';
 import CallFeedbackModal, {
   DisconnectedCall,
 } from './src/components/CallFeedbackModal';
@@ -135,6 +136,7 @@ const App = () => {
             component={AttendanceHistory}
           />
           <Stack.Screen name="StudentList" component={StudentList} />
+          <Stack.Screen name="StudentFees" component={StudentFees} />
           <Stack.Screen name="TakePicture" component={TakePicture} />
           <Stack.Screen
             name="CallAnalyticsScreen"

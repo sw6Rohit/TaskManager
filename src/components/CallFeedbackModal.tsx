@@ -1,18 +1,19 @@
-import {showMessage} from 'react-native-flash-message';
+import { showMessage } from 'react-native-flash-message';
 import axios from 'axios';
-import {Picker} from '@react-native-picker/picker';
-import {useSelector} from 'react-redux';
-import {RootState} from '../redux/store';
-import {resolveLeadCall} from '../utils/LeadCallContext';
+import { Picker } from '@react-native-picker/picker';
+import { useSelector } from 'react-redux';
+import { RootState } from '../redux/store';
+import { resolveLeadCall } from '../utils/LeadCallContext';
 
 import DateTimePicker from '@react-native-community/datetimepicker';
-import React, {useEffect, useRef, useState} from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -20,6 +21,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import moment from 'moment';
 
 export type DisconnectedCall = {
   phoneNumber: string;
@@ -30,10 +32,11 @@ export type DisconnectedCall = {
 
 type Props = {
   call: DisconnectedCall | null;
+  selectedLeadId?: number;
   onClose: () => void;
 };
 
-const CallFeedbackModal = ({call, onClose}: Props) => {
+const CallFeedbackModal = ({ call, selectedLeadId, onClose }: Props) => {
   const [remarks, setRemarks] = useState('');
   const [expectedUpdatedAt, setExpectedUpdatedAt] = useState<string | null>(
     null,
@@ -48,9 +51,43 @@ const CallFeedbackModal = ({call, onClose}: Props) => {
   const [loadingResponses, setLoadingResponses] = useState(false);
   const [responseError, setResponseError] = useState('');
   const [retry, setRetry] = useState(0);
+  const [showReopenModal, setShowReopenModal] = useState(false);
+  const [stages, setStages] = useState<any[]>([]);
+  const [reopenStageId, setReopenStageId] = useState<number | null>(null);
+  const [reopenRemark, setReopenRemark] = useState('');
   const selectedResponse = responses.find(
     item => Number(item.ResponseId) === responseId,
   );
+
+
+  const loadStages = async () => {
+    try {
+      const { data } = await axios.post(
+        'https://studentapinew.university99.com/api/Lead/M03Stage/operation',
+        
+        {"type":5,"id":2,"mentorIds":[],"sourceId":"","campaignId":"","leadFilter":"all",
+          loginUserId: Number(user?.userId) || null
+        },
+        {
+          headers: user?.token
+            ? { Authorization: `Bearer ${user.token}` }
+            : {},
+        },
+      );
+      console.log(data?.data);
+      
+
+      setStages(data?.data || []);
+    } catch (error: any) {
+      console.log(error?.response);
+      
+      Alert.alert(
+        'Error',
+        error.response?.data?.message || 'Unable to load stages.',
+      );
+    }
+  };
+
   useEffect(() => {
     const controller = new AbortController();
     setResponses([]);
@@ -62,7 +99,7 @@ const CallFeedbackModal = ({call, onClose}: Props) => {
     setLoadingResponses(true);
     const load = async () => {
       try {
-        const id = await resolveLeadCall();
+        const id = selectedLeadId ?? (await resolveLeadCall());
         console.log(id);
 
         if (!id)
@@ -71,13 +108,13 @@ const CallFeedbackModal = ({call, onClose}: Props) => {
           );
         if (controller.signal.aborted) return;
         setLeadId(id);
-        const {data} = await axios.post(
+        const { data } = await axios.post(
           'https://studentapinew.university99.com/api/Lead/L01LeadResponse/get-lead-response-page',
-          {leadId: id},
+          { leadId: id },
           {
             timeout: 20000,
             signal: controller.signal,
-            headers: user?.token ? {Authorization: `Bearer ${user.token}`} : {},
+            headers: user?.token ? { Authorization: `Bearer ${user.token}` } : {},
           },
         );
         if (data?.isSuccess === false)
@@ -101,8 +138,8 @@ const CallFeedbackModal = ({call, onClose}: Props) => {
     };
     load();
     return () => controller.abort();
-  }, [call?.phoneNumber, call?.timestamp, user?.userId, user?.token, retry]);
-  const [followUpDate, setFollowUpDate] = useState(new Date());
+  }, [call?.phoneNumber, call?.timestamp, selectedLeadId, user?.userId, user?.token, retry]);
+  const [followUpDate, setFollowUpDate] = useState(moment().add(1, 'day').hour(9).minute(0).second(0).millisecond(0).toDate());
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   useEffect(() => {
@@ -110,7 +147,7 @@ const CallFeedbackModal = ({call, onClose}: Props) => {
       setRemarks('');
       setShowDatePicker(false);
 
-      setFollowUpDate(new Date());
+      setFollowUpDate(moment().add(1, 'day').hour(9).minute(0).second(0).millisecond(0).toDate());
     }
   }, [call]);
 
@@ -123,8 +160,11 @@ const CallFeedbackModal = ({call, onClose}: Props) => {
       Alert.alert('Select a response', 'Choose a lead response before saving.');
       return;
     }
-    if (selectedResponse.RemarkRequired && !remarks.trim()) {
-      Alert.alert('Remarks required', 'Enter remarks for this response.');
+    if (selectedResponse.RemarkRequired && remarks.trim().length < 25) {
+      Alert.alert(
+        'Remarks required',
+        'Please enter at least 25 characters in remarks.'
+      );
       return;
     }
     savingRef.current = true;
@@ -139,16 +179,18 @@ const CallFeedbackModal = ({call, onClose}: Props) => {
       actionBy: Number(user?.userId) || null,
       ipAddress: null,
       expectedUpdatedAt,
+      callDate: moment().format('YYYY-MM-DDTHH:mm:ss.SSS[Z]'),
     });
 
     setSaving(true);
     try {
-      const {data} = await axios.post(
+      const { data } = await axios.post(
         'https://studentapinew.university99.com/api/Lead/L01LeadResponse/update-lead-response',
         {
           leadId,
           responseId,
           manualFollowUpDateTime: followUpDate.toISOString(),
+          callDate: moment().format('YYYY-MM-DDTHH:mm:ss.SSS[Z]'),
           manualRemark: remarks.trim(),
           assignedUserId: null,
           mentorUserId: null,
@@ -159,7 +201,7 @@ const CallFeedbackModal = ({call, onClose}: Props) => {
         },
         {
           timeout: 20000,
-          headers: user?.token ? {Authorization: `Bearer ${user.token}`} : {},
+          headers: user?.token ? { Authorization: `Bearer ${user.token}` } : {},
         },
       );
       console.log(data);
@@ -167,7 +209,7 @@ const CallFeedbackModal = ({call, onClose}: Props) => {
       if (data?.isSuccess !== true) {
         throw new Error(
           data?.message ||
-            'The server did not confirm that feedback was saved.',
+          'The server did not confirm that feedback was saved.',
         );
       }
       onClose();
@@ -177,22 +219,84 @@ const CallFeedbackModal = ({call, onClose}: Props) => {
         duration: 3000,
       });
     } catch (error: any) {
-      Alert.alert(
-        'Feedback not saved',
-        error.response?.data?.message || error.message || 'Please try again.',
-      );
+      console.log(error);
+
+      Alert.alert('Feedback not saved', error.response?.data?.message || error.message || 'Please try again.',);
+
     } finally {
       savingRef.current = false;
       setSaving(false);
     }
   };
 
+  const reopenLead = async () => {
+    if (!leadId) {
+      Alert.alert('Error', 'Lead ID not found.');
+      return;
+    }
+
+    if (!reopenStageId) {
+      Alert.alert('Select Stage', 'Please select reopen stage.');
+      return;
+    }
+
+    if (!reopenRemark.trim()) {
+      Alert.alert('Remark Required', 'Please enter remark.');
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      const { data } = await axios.post(
+        'https://studentapinew.university99.com/api/Lead/L01LeadResponse/reopen-lead',
+        {
+          leadId: leadId,
+          reopenToStageId: reopenStageId,
+          remark: reopenRemark.trim(),
+          actionBy: Number(user?.userId) || null,
+          ipAddress: null,
+        },
+        {
+          timeout: 20000,
+          headers: user?.token
+            ? { Authorization: `Bearer ${user.token}` }
+            : {},
+        },
+      );
+
+      if (data?.isSuccess === false) {
+        throw new Error(data?.message || 'Unable to reopen lead.');
+      }
+
+      setShowReopenModal(false);
+
+      showMessage({
+        message: data?.message || 'Lead reopened successfully.',
+        type: 'success',
+        duration: 3000,
+      });
+
+      onClose();
+    } catch (error: any) {
+      Alert.alert(
+        'Reopen failed',
+        error.response?.data?.message ||
+        error.message ||
+        'Unable to reopen lead.',
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
+    <View>
     <Modal
       visible={Boolean(call)}
       transparent
       animationType="slide"
-      onRequestClose={() => {}}>
+      onRequestClose={() => { }}>
       <KeyboardAvoidingView
         style={styles.overlay}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -208,10 +312,8 @@ const CallFeedbackModal = ({call, onClose}: Props) => {
             <Text selectable style={styles.label}>
               Lead ID: {leadId ?? '—'}
             </Text>
-            <Text style={styles.title}>Call feedback</Text>
-            <Text style={styles.subtitle}>
-              Add details for the completed call
-            </Text>
+            <Text style={styles.title}>{selectedLeadId ? 'Lead feedback For Leadid :' : 'Call feedback' + leadId}</Text>
+
 
             <Text style={styles.label}>Response</Text>
             {loadingResponses ? (
@@ -248,32 +350,33 @@ const CallFeedbackModal = ({call, onClose}: Props) => {
               value={remarks}
               onChangeText={setRemarks}
             />
-
-            <Text style={styles.label}>Follow-up date</Text>
-            <TouchableOpacity
-              style={styles.input}
-              onPress={() => {
-                setPickerMode('date');
-                setShowDatePicker(true);
-              }}>
-              <Text style={styles.dateText}>
-                {followUpDate.toLocaleDateString()}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.input}
-              onPress={() => {
-                setPickerMode('time');
-                setShowDatePicker(true);
-              }}>
-              <Text style={styles.dateText}>
-                Time:{' '}
-                {followUpDate.toLocaleTimeString([], {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
-              </Text>
-            </TouchableOpacity>
+            {selectedResponse?.FollowUpRequired && <View>
+              <Text style={styles.label}>Follow-up date</Text>
+              <TouchableOpacity
+                style={styles.input}
+                onPress={() => {
+                  setPickerMode('date');
+                  setShowDatePicker(true);
+                }}>
+                <Text style={styles.dateText}>
+                  {followUpDate.toLocaleDateString()}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.input}
+                onPress={() => {
+                  setPickerMode('time');
+                  setShowDatePicker(true);
+                }}>
+                <Text style={styles.dateText}>
+                  Time:{' '}
+                  {followUpDate.toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </Text>
+              </TouchableOpacity>
+            </View>}
             {showDatePicker && (
               <DateTimePicker
                 value={followUpDate}
@@ -289,24 +392,110 @@ const CallFeedbackModal = ({call, onClose}: Props) => {
             )}
 
             <View style={styles.actions}>
-              <TouchableOpacity
+              <Pressable
+                disabled={saving || !leadId}
+                style={[
+                  styles.reopenButton,
+                  (saving || !leadId) && styles.disabledButton,
+                ]}
+                onPress={async () => {
+                  setReopenStageId(null);
+                  setReopenRemark('');
+                  await loadStages();
+                  setShowReopenModal(true);
+                }}>
+                <Text style={styles.reopenText}>
+                  {saving ? 'Please wait…' : 'Reopen Lead'}
+                </Text>
+              </Pressable>
+
+              <Pressable
                 disabled={saving || loadingResponses || !selectedResponse}
                 style={[
                   styles.saveButton,
-                  (saving || loadingResponses || !selectedResponse) && {
-                    opacity: 0.5,
-                  },
+                  (saving || loadingResponses || !selectedResponse) &&
+                  styles.disabledButton,
                 ]}
                 onPress={saveFeedback}>
                 <Text style={styles.saveText}>
                   {saving ? 'Saving…' : 'Save feedback'}
                 </Text>
-              </TouchableOpacity>
+              </Pressable>
             </View>
           </ScrollView>
         </View>
       </KeyboardAvoidingView>
     </Modal>
+    <Modal
+  visible={showReopenModal}
+  transparent
+  animationType="fade"
+  onRequestClose={() => setShowReopenModal(false)}>
+
+  <View style={styles.reopenOverlay}>
+    <View style={styles.reopenModal}>
+
+      <Text style={styles.reopenTitle}>Reopen Lead</Text>
+
+      <Text style={styles.label}>Stage</Text>
+
+      <View style={styles.input}>
+        <Picker
+          selectedValue={reopenStageId}
+          onValueChange={value =>
+            setReopenStageId(value == null ? null : Number(value))
+          }>
+          <Picker.Item label="Select stage" value={null} />
+
+          {stages.map(item => (
+            <Picker.Item
+              key={String(item.id)}
+              label={item.statusName}
+              value={Number(item.id)}
+            />
+          ))}
+        </Picker>
+      </View>
+
+      <Text style={styles.label}>Remark</Text>
+
+      <TextInput
+        style={[styles.input, styles.remarks]}
+        placeholder="Enter reopen remark"
+        multiline
+        value={reopenRemark}
+        onChangeText={setReopenRemark}
+      />
+
+      <View style={styles.actions}>
+
+        <Pressable
+          style={styles.cancelButton}
+          disabled={saving}
+          onPress={() => setShowReopenModal(false)}>
+          <Text style={styles.cancelText}>Cancel</Text>
+        </Pressable>
+
+        <Pressable
+          style={[
+            styles.saveButton,
+            (saving || !reopenStageId || !reopenRemark.trim()) &&
+              styles.disabledButton,
+          ]}
+          disabled={
+            saving || !reopenStageId || !reopenRemark.trim()
+          }
+          onPress={reopenLead}>
+          <Text style={styles.saveText}>
+            {saving ? 'Reopening...' : 'Reopen'}
+          </Text>
+        </Pressable>
+
+      </View>
+    </View>
+  </View>
+</Modal>
+    </View>
   );
 };
 
@@ -317,23 +506,25 @@ const styles = StyleSheet.create({
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'absolute',
+    top: 0, right: 0
   },
-  closeText: {fontSize: 30, color: '#333'},
+  closeText: { fontSize: 30, color: '#333' },
   overlay: {
     flex: 1,
     justifyContent: 'flex-end',
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   card: {
-    maxHeight: '90%',
+    maxHeight: '80%',
     padding: 22,
     backgroundColor: '#fff',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
   },
-  title: {fontSize: 22, fontWeight: '700', color: '#1b1b1b'},
-  subtitle: {marginTop: 4, marginBottom: 20, color: '#666'},
-  label: {marginTop: 14, marginBottom: 7, fontWeight: '600', color: '#333'},
+  title: { fontSize: 22, fontWeight: '700', color: '#1b1b1b' },
+  subtitle: { marginTop: 4, marginBottom: 10, color: '#666' },
+  label: { marginTop: 0, marginBottom: 7, fontWeight: '600', color: '#333' },
   input: {
     minHeight: 48,
     justifyContent: 'center',
@@ -344,9 +535,9 @@ const styles = StyleSheet.create({
     color: '#222',
     backgroundColor: '#fff',
   },
-  disabledInput: {backgroundColor: '#f3f4f6', color: '#555'},
-  remarks: {height: 90, paddingTop: 12, textAlignVertical: 'top'},
-  statusList: {flexDirection: 'row', flexWrap: 'wrap', gap: 8},
+  disabledInput: { backgroundColor: '#f3f4f6', color: '#555' },
+  remarks: { height: 90, paddingTop: 12, textAlignVertical: 'top' },
+  statusList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   statusButton: {
     paddingHorizontal: 12,
     paddingVertical: 9,
@@ -354,11 +545,11 @@ const styles = StyleSheet.create({
     borderColor: '#d8d8d8',
     borderRadius: 18,
   },
-  selectedStatus: {backgroundColor: '#2856d8', borderColor: '#2856d8'},
-  statusText: {color: '#444'},
-  selectedStatusText: {color: '#fff'},
-  dateText: {color: '#222'},
-  actions: {flexDirection: 'row', gap: 12, marginTop: 24},
+  selectedStatus: { backgroundColor: '#2856d8', borderColor: '#2856d8' },
+  statusText: { color: '#444' },
+  selectedStatusText: { color: '#fff' },
+  dateText: { color: '#222' },
+  actions: { flexDirection: 'row', gap: 12, marginTop: 24 },
   cancelButton: {
     flex: 1,
     alignItems: 'center',
@@ -367,7 +558,7 @@ const styles = StyleSheet.create({
     borderColor: '#bbb',
     borderRadius: 10,
   },
-  cancelText: {fontWeight: '600', color: '#555'},
+  cancelText: { fontWeight: '600', color: '#555' },
   saveButton: {
     flex: 2,
     alignItems: 'center',
@@ -375,7 +566,43 @@ const styles = StyleSheet.create({
     backgroundColor: '#2856d8',
     borderRadius: 10,
   },
-  saveText: {fontWeight: '700', color: '#fff'},
+  saveText: { fontWeight: '700', color: '#fff' },
+  reopenButton: {
+    flex: 1,
+    alignItems: 'center',
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#2856d8',
+    borderRadius: 10,
+    backgroundColor: '#fff',
+  },
+
+  reopenText: {
+    fontWeight: '700',
+    color: '#2856d8',
+  },
+  disabledButton: {
+    opacity: 0.5,
+  },
+  reopenOverlay: {
+  flex: 1,
+  justifyContent: 'center',
+  padding: 20,
+  backgroundColor: 'rgba(0,0,0,0.5)',
+},
+
+reopenModal: {
+  backgroundColor: '#fff',
+  padding: 20,
+  borderRadius: 16,
+},
+
+reopenTitle: {
+  fontSize: 20,
+  fontWeight: '700',
+  marginBottom: 18,
+  color: '#222',
+},
 });
 
 export default CallFeedbackModal;

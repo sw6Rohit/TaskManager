@@ -5,9 +5,10 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React from 'react';
+import moment from 'moment';
 import {Linking} from 'react-native';
 import {act, create} from 'react-test-renderer';
-import LeadDashboardScreen from '../src/screens/LeadDashboardScreen';
+import LeadDashboardScreen, {getSourceFilterMode} from '../src/screens/LeadDashboardScreen';
 jest.mock('@react-native-picker/picker', () => ({
   Picker: Object.assign(
     (props: any) => require('react').createElement('Picker', props),
@@ -34,10 +35,15 @@ jest.mock('axios', () => ({
     }),
   ),
 }));
+jest.mock('../src/redux/slices/userSlice', () => ({clearUser: jest.fn()}));
+jest.mock('@react-navigation/native', () => ({useNavigation: () => ({reset: jest.fn()})}));
 jest.mock('react-redux', () => ({
+  useDispatch: () => jest.fn(),
   useSelector: (select: any) => select({user: {userInfo: {userId: 884}}}),
 }));
 jest.mock('react-native-vector-icons/Feather', () => 'Icon');
+jest.mock('react-native-flash-message', () => ({showMessage: jest.fn()}));
+jest.mock('@react-native-community/datetimepicker', () => 'DateTimePicker');
 test('rendered lead number opens the dialer on press', async () => {
   const open = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
   let tree: any;
@@ -83,13 +89,26 @@ test('rendered lead number opens the dialer on press', async () => {
     expect.objectContaining({stageId: 5, pageNumber: 1}),
     expect.any(Object),
   );
+  const responseButton = tree.root.findAll(
+    (node: any) =>
+      node.props.accessibilityLabel === 'Response' &&
+      typeof node.props.onPress === 'function',
+  )[0];
+  open.mockClear();
+  await act(async () => responseButton.props.onPress());
+  expect(open).not.toHaveBeenCalled();
+  expect(axios.post).toHaveBeenLastCalledWith(
+    expect.stringContaining('get-lead-response-page'),
+    {leadId: 1},
+    expect.any(Object),
+  );
   act(() => tree.unmount());
   open.mockRestore();
 });
 
-test.each([null, 8])(
-  'searches API by selected name for campaign %s',
-  async campaignId => {
+test.each([[null, 'CAMPAIGN'], [8, 'CAMPAIGN'], [8, 'REFERENCE'], ['EXT000016', 'REFERENCE']] as const)(
+  'searches API by selected name for selection %s in mode %s',
+  async (campaignId, mode) => {
     (axios.post as jest.Mock).mockClear();
     (axios.post as jest.Mock).mockImplementation((url, body) =>
       Promise.resolve({
@@ -97,7 +116,7 @@ test.each([null, 8])(
           data: url.includes('M03Stage')
             ? [{id: 18, statusName: 'New'}]
             : url.includes('L07Source')
-            ? [{sourceId: 2, sourceName: 'Website'}]
+            ? [{Id: 2, Name: 'Website', CampaignAllowed: mode === 'CAMPAIGN', ReferenceAllowed: mode === 'REFERENCE'}]
             : {
                 items: [
                   {leadId: body.pageNumber, SourceId: 999, CampaignId: 999},
@@ -110,7 +129,9 @@ test.each([null, 8])(
     (axios as any).get = jest.fn().mockResolvedValue({
       data: {
         data: [
-          {sourceId: 2, campaignId: 8, campaignName: 'September Campaign'},
+          typeof campaignId === 'string'
+            ? {Id: campaignId, Name: 'Adarsh Gyan Sarover Public School'}
+            : {sourceId: 2, referenceId: 8, referenceName: 'September Campaign'},
         ],
       },
     });
@@ -133,9 +154,20 @@ test.each([null, 8])(
     await act(async () => {
       tree.root.findAllByType('Picker')[1].props.onValueChange(2);
     });
+    expect(axios.get).toHaveBeenCalledWith(
+      expect.stringContaining('dashboard-filters'),
+      expect.objectContaining({params: {mode, sourceId: 2}}),
+    );
+    const optionName = typeof campaignId === 'string' ? 'Adarsh Gyan Sarover Public School' : 'September Campaign';
+    expect(tree.root.findAllByType('PickerItem').some(
+      (item: any) => item.props.value === String(campaignId ?? 8) && item.props.label === optionName,
+    )).toBe(true);
     await act(async () => {
       tree.root.findAllByType('Picker')[2].props.onValueChange(campaignId);
     });
+    expect(tree.root.findAllByType('Picker')[2].props.selectedValue).toBe(
+      campaignId == null ? null : String(campaignId),
+    );
     await act(async () => {
       await pressAncestor(
         tree.root.findAll(
@@ -149,7 +181,7 @@ test.each([null, 8])(
       (axios.post as jest.Mock).mock.calls.filter(([url]) =>
         url.includes('L08LeadsByStage'),
       );
-    const expectedSearch = campaignId ? 'September Campaign' : 'Website';
+    const expectedSearch = campaignId ? optionName : 'Website';
     expect(leadCalls()).toHaveLength(2);
     expect(leadCalls()[1][1]).toEqual(
       expect.objectContaining({
@@ -175,16 +207,16 @@ test.each([null, 8])(
 );
 
 
-test('Pending and Called tabs group by updated_at today without another API call', async () => {
+test('Pending and Called tabs group by Created_at today without another API call', async () => {
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
   (axios.post as jest.Mock).mockClear();
   (axios.post as jest.Mock).mockImplementation((url: string) => Promise.resolve({data: {data:
     url.includes('M03Stage') ? [{id: 18, statusName: 'New'}] : [
-      {leadId: 1, updated_at: new Date().toISOString()},
-      {leadId: 2, Updated_at: yesterday.toISOString()},
-      {leadId: 3, updated_at: null},
-      {leadId: 4, updated_at: 'invalid'},
+      {leadId: 1, Created_at: new Date().toISOString(), updated_at: yesterday.toISOString()},
+      {leadId: 2, created_at: yesterday.toISOString(), updated_at: new Date().toISOString()},
+      {leadId: 3, Created_at: null},
+      {leadId: 4, Created_at: 'invalid'},
     ]
   }}));
   let tree: any;
@@ -196,5 +228,63 @@ test('Pending and Called tabs group by updated_at today without another API call
   await act(async () => {called.props.onPress();});
   expect(list().props.data.map((row: any) => row.leadId)).toEqual([1]);
   expect((axios.post as jest.Mock).mock.calls).toHaveLength(calls);
+  act(() => tree.unmount());
+});
+
+test('source flags determine the supported filter mode', () => {
+  expect(getSourceFilterMode({Id: 2, Name: 'Google Ads', CampaignAllowed: true, ReferenceAllowed: false})).toBe('CAMPAIGN');
+  expect(getSourceFilterMode({CampaignAllowed: false, ReferenceAllowed: true})).toBe('REFERENCE');
+  expect(getSourceFilterMode({CampaignAllowed: false, ReferenceAllowed: false})).toBeNull();
+});
+
+test('the exact API timestamp appears in Called on October 1', async () => {
+  const clock = jest.spyOn(moment, 'now').mockReturnValue(
+    moment('2026-10-01T12:00:00').valueOf(),
+  );
+  (axios.post as jest.Mock).mockImplementation((url: string) =>
+    Promise.resolve({data: {data: url.includes('M03Stage')
+      ? [{id: 18, statusName: 'New'}]
+      : [
+          {leadId: 10, createdAt: null, Created_at: '2026-10-01T10:47:34.1'},
+          {leadId: 11, Created_at: '2026-09-30T10:47:34.1'},
+        ],
+    }}),
+  );
+  let tree: any;
+  try {
+    await act(async () => {tree = create(<LeadDashboardScreen />);});
+    const list = tree.root.findByType(require('react-native').FlatList);
+    const called = tree.root.findAll((node: any) => node.props.accessibilityLabel === 'Called leads' && typeof node.props.onPress === 'function')[0];
+    await act(async () => {called.props.onPress();});
+    expect(tree.root.findByType(require('react-native').FlatList).props.data.map((row: any) => row.leadId)).toEqual([10]);
+  } finally {
+    if (tree) act(() => tree.unmount());
+    clock.mockRestore();
+  }
+});
+
+test.each([
+  ['New', 'newLead'], ['Retry', 'retry'], ['Today', 'todayFollow'],
+  ['Later', 'comingUp'], ['Overdue', 'overDue'],
+])('refreshes stages and leads with the %s filter', async (label, leadFilter) => {
+  (axios.post as jest.Mock).mockClear();
+  (axios.post as jest.Mock).mockImplementation((url: string) => Promise.resolve({
+    data: {data: url.includes('M03Stage') ? [{id: 18, statusName: 'New'}] : [{leadId: 1}]},
+  }));
+  let tree: any;
+  await act(async () => {tree = create(<LeadDashboardScreen />);});
+  (axios.post as jest.Mock).mockClear();
+  const text = tree.root.findAll((node: any) =>
+    node.type === require('react-native').Text && node.props.children === label,
+  )[0];
+  let tab = text.parent;
+  while (tab && typeof tab.props.onPress !== 'function') tab = tab.parent;
+  await act(async () => {await tab.props.onPress();});
+  const calls = (axios.post as jest.Mock).mock.calls;
+  expect(calls).toHaveLength(2);
+  expect(calls[0][0]).toContain('M03Stage');
+  expect(calls[0][1]).toEqual(expect.objectContaining({leadFilter}));
+  expect(calls[1][0]).toContain('L08LeadsByStage');
+  expect(calls[1][1]).toEqual(expect.objectContaining({leadFilter, pageNumber: 1}));
   act(() => tree.unmount());
 });
