@@ -54,7 +54,7 @@ const DashboardSummary = () => {
     });
   }, [isFocused, user.userInfo]);
   const userId = user.userInfo?.userId;
-  const showCallAnalytics = ['884', '907'].includes(String(userId));
+  const showCallAnalytics = false ;// ['884', '907'].includes(String(userId));
   const date = moment().format('YYYY-MM-DD');
   const [attendanceAgreementShown, setAttendanceAgreementShown] =
     useState(false);

@@ -101,7 +101,7 @@ const CallAnalyticsScreen = () => {
         Constant.API_REQUEST_METHOD.GET,
       );
 
-      console.log('Call Types Response:', data);
+      // console.log('Call Types Response:', data);
 
       if (data?.isSuccess) {
         setCallTypes(data?.data || []);
@@ -139,6 +139,8 @@ const CallAnalyticsScreen = () => {
       }
 
       const data = await getCallStats();
+      console.log(data);
+      
 
       setStats(data);
 

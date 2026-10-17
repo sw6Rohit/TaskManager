@@ -23,6 +23,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../redux/store';
 import CallFeedbackModal, { DisconnectedCall } from '../components/CallFeedbackModal';
 import moment from 'moment';
+import LeadHistoryModal from '../components/LeadHistoryModal';
 
 import { clearUser } from '../redux/slices/userSlice';
 import { useNavigation } from '@react-navigation/native';
@@ -115,13 +116,14 @@ export default function LeadDashboardScreen() {
   const user = useSelector((state: RootState) => state?.user?.userInfo);
   const loginUserId = Number(user?.userId);
 
-    const userData = useSelector((state: RootState) => state?.user);
-   const navigation= useNavigation()
+  const userData = useSelector((state: RootState) => state?.user);
+  const navigation = useNavigation()
 
   const dispatch = useDispatch();
 
 
   const [query, setQuery] = useState('');
+  const [historyLead, setHistoryLead] = useState<{leadId: number; name: string; code: string} | null>(null);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [reload, setReload] = useState(0);
@@ -159,52 +161,54 @@ export default function LeadDashboardScreen() {
   const [today, setToday] = useState(() => moment().format());
   const [newestFirst, setNewestFirst] = useState(true);
   const [universityId, setUniversityId] = useState<number>(2);
-const [universityDropdownOpen, setUniversityDropdownOpen] = useState(false);
+  const [universityDropdownOpen, setUniversityDropdownOpen] = useState(false);
 
 
-useEffect(() => {
-  navigation.setOptions({
-    headerRight: () => (
-      <TouchableOpacity
-        onPress={() => setUniversityDropdownOpen(true)}
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          backgroundColor: '#F4F0FF',
-          borderWidth: 1,
-          borderColor: '#DDD6FE',
-          borderRadius: 8,
-          paddingHorizontal: 10,
-          paddingVertical: 8,
-          marginRight: 12,
-          gap: 7,
-        }}
-      >
-        <Text style={{ color: '#5130B5', fontWeight: '700' }}>
-          {universityId === 3 ? 'DDUGKY' : 'SCVT'}
-        </Text>
-        <Icon name="chevron-down" size={16} color="#5130B5" />
-      </TouchableOpacity>
-    ),
-  });
-}, [navigation, universityId]);
+
+  useEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TouchableOpacity
+          onPress={() => setUniversityDropdownOpen(true)}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: '#F4F0FF',
+            borderWidth: 1,
+            borderColor: '#DDD6FE',
+            borderRadius: 8,
+            paddingHorizontal: 10,
+            paddingVertical: 8,
+            marginRight: 12,
+            gap: 7,
+          }}
+        >
+          <Text style={{ color: '#5130B5', fontWeight: '700' }}>
+            {universityId === 3 ? 'DDUGKY' : 'SCVT'}
+          </Text>
+          <Icon name="chevron-down" size={16} color="#5130B5" />
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation, universityId]);
   const [leadFilterCounts, setLeadFilterCounts] = useState<any>({
-  all: 0,
-  newLead: 0,
-  retry: 0,
-  todayFollow: 0,
-  comingUp: 0,
-  overDue: 0,
-});
-const [fromDate, setFromDate] = useState( moment('2020-01-01').format('YYYY-MM-DD'));
+    all: 0,
+    newLead: 0,
+    retry: 0,
+    todayFollow: 0,
+    comingUp: 0,
+    overDue: 0,
+    noFollowupRequired: 0,
+  });
+  const [fromDate, setFromDate] = useState(moment('2020-01-01').format('YYYY-MM-DD'));
 
-const [toDate, setToDate] = useState(moment().add(7, 'days').format('YYYY-MM-DD'));
+  const [toDate, setToDate] = useState(moment().add(7, 'days').format('YYYY-MM-DD'));
   const requestPageSize =
     selectedSourceId != null ||
-    selectedCampaignId != null ||
-    selectedLeadType ||
-    search ||
-    callStatus
+      selectedCampaignId != null ||
+      selectedLeadType ||
+      search ||
+      callStatus
       ? 99999
       : PAGE_SIZE;
 
@@ -225,10 +229,10 @@ const [toDate, setToDate] = useState(moment().add(7, 'days').format('YYYY-MM-DD'
 
   const statusRows = useMemo(() => {
     const called = rows.filter(item =>
-      wasLeadUpdatedToday(leadFieldValue(item, ['Created_at']), today),
+      wasLeadUpdatedToday(leadFieldValue(item, ['CallDate']), today),
     );
     const pending = rows.filter(
-      item => !wasLeadUpdatedToday(leadFieldValue(item, ['Created_at']), today),
+      item => !wasLeadUpdatedToday(leadFieldValue(item, ['CallDate']), today),
     );
     const visible = [...(callStatus === 'called' ? called : pending)].sort(
       (a, b) => {
@@ -239,7 +243,7 @@ const [toDate, setToDate] = useState(moment().add(7, 'days').format('YYYY-MM-DD'
         return newestFirst ? bTime - aTime : aTime - bTime;
       },
     );
-    return {called: called.length, pending: pending.length, visible};
+    return { called: called.length, pending: pending.length, visible };
   }, [rows, today, callStatus, newestFirst]);
 
   useEffect(() => {
@@ -251,34 +255,34 @@ const [toDate, setToDate] = useState(moment().add(7, 'days').format('YYYY-MM-DD'
     setPage(1);
 
     const loadStages = async () => {
-        console.log(universityId, loginUserId, leadFilter ,fromDate,toDate,tempSourceId?.toString(),tempCampaignId?.toString());
 
       try {
         if (!loginUserId) throw new Error('Please log in to view stages.');
         const { data: body } = await axios.post(
           STAGE_ENDPOINT,
-          { type: 5,  id: universityId, loginUserId, leadFilter ,fromDate,toDate,sourceId:tempSourceId?.toString(),campaignId: tempCampaignId?.toString()},
+          { type: 5, id: universityId, loginUserId, leadFilter, fromDate, toDate, sourceId: tempSourceId?.toString(), campaignId: tempCampaignId?.toString() },
           {
             timeout: 20000,
             signal: controller.signal,
             headers: user?.token ? { Authorization: `Bearer ${user.token}` } : {},
           },
         );
-        
-       if (body?.isSuccess === false) {
-  throw new Error(body.message || 'Unable to load stages.');
-}
 
-setLeadFilterCounts(body?.leadFilterCounts ?? {
-  all: 0,
-  newLead: 0,
-  retry: 0,
-  todayFollow: 0,
-  comingUp: 0,
-  overDue: 0,
-});
+        if (body?.isSuccess === false) {
+          throw new Error(body.message || 'Unable to load stages.');
+        }
 
-const data = body?.data ?? body;
+        setLeadFilterCounts(body?.leadFilterCounts ?? {
+          all: 0,
+          newLead: 0,
+          retry: 0,
+          todayFollow: 0,
+          comingUp: 0,
+          overDue: 0,
+          noFollowupRequired: 0,
+        });
+
+        const data = body?.data ?? body;
         const list = Array.isArray(data)
           ? data
           : data?.stages ?? data?.items ?? data?.records;
@@ -304,14 +308,12 @@ const data = body?.data ?? body;
           );
         }
       } catch (failure: any) {
-        if (!controller.signal.aborted)
-        {
-          if(failure?.status ===401)
-          {
+        if (!controller.signal.aborted) {
+          if (failure?.status === 401) {
             dispatch(clearUser());
           }
           else
-          setStageError(failure.message || 'Unable to load stages.');
+            setStageError(failure.message || 'Unable to load stages.');
         }
       } finally {
         if (!controller.signal.aborted) setStagesLoading(false);
@@ -320,7 +322,7 @@ const data = body?.data ?? body;
 
     loadStages();
     return () => controller.abort();
-  }, [loginUserId, user?.token, stageReload, leadFilter, universityId,filterVisible]);
+  }, [loginUserId, user?.token, stageReload, leadFilter, universityId]);
 
   const loadSources = async () => {
     try {
@@ -397,17 +399,6 @@ const data = body?.data ?? body;
   };
 
   const applyFilters = () => {
-    const campaign = campaigns.find(
-      item => getCampaignId(item) === tempCampaignId,
-    );
-    const source = sources.find(item => getSourceId(item) === tempSourceId);
-    const filterSearch = campaign
-      ? getCampaignName(campaign)
-      : source
-        ? getSourceName(source)
-        : '';
-    setQuery(filterSearch);
-    setSearch(filterSearch);
     setReload(value => value + 1);
     setSelectedSourceId(tempSourceId);
     setSelectedCampaignId(tempCampaignId);
@@ -428,6 +419,7 @@ const data = body?.data ?? body;
     setCampaigns([]);
     setPage(1);
     setFilterVisible(false);
+    setReload(value => value + 1);
   };
   useEffect(() => {
     if (!userData.userInfo) {
@@ -455,11 +447,11 @@ const data = body?.data ?? body;
           ENDPOINT,
           {
             stageId: stageId,
-            universityId: 2,
+            universityId: universityId,
             pageNumber: page,
             pageSize: requestPageSize,
             search: search || null,
-
+            sourceIds: tempSourceId?.toString(), campaignIds: tempCampaignId?.toString(),
             leadFilter,
           },
           {
@@ -468,6 +460,8 @@ const data = body?.data ?? body;
             headers: user?.token ? { Authorization: `Bearer ${user.token}` } : {},
           },
         );
+        console.log(response?.data);
+        
 
         const result = parseLeadResponse(response.data);
         if (!controller.signal.aborted) {
@@ -502,7 +496,7 @@ const data = body?.data ?? body;
     stagesLoading,
     requestPageSize,
     fromDate,
-  toDate,
+    toDate,
   ]);
 
   const openDialer = async (number: string, lead: any) => {
@@ -521,32 +515,32 @@ const data = body?.data ?? body;
     }
   };
   const openFromDatePicker = () => {
-  DateTimePickerAndroid.open({
-    value: moment(fromDate, 'YYYY-MM-DD').toDate(),
-    mode: 'date',
-    maximumDate: moment(toDate, 'YYYY-MM-DD').toDate(),
+    DateTimePickerAndroid.open({
+      value: moment(fromDate, 'YYYY-MM-DD').toDate(),
+      mode: 'date',
+      maximumDate: moment(toDate, 'YYYY-MM-DD').toDate(),
 
-    onChange: (event, selectedDate) => {
-      if (event.type === 'set' && selectedDate) {
-        setFromDate(moment(selectedDate).format('YYYY-MM-DD'));
-      }
-    },
-  });
-};
+      onChange: (event, selectedDate) => {
+        if (event.type === 'set' && selectedDate) {
+          setFromDate(moment(selectedDate).format('YYYY-MM-DD'));
+        }
+      },
+    });
+  };
 
-const openToDatePicker = () => {
-  DateTimePickerAndroid.open({
-    value: moment(toDate, 'YYYY-MM-DD').toDate(),
-    mode: 'date',
-    minimumDate: moment(fromDate, 'YYYY-MM-DD').toDate(),
+  const openToDatePicker = () => {
+    DateTimePickerAndroid.open({
+      value: moment(toDate, 'YYYY-MM-DD').toDate(),
+      mode: 'date',
+      minimumDate: moment(fromDate, 'YYYY-MM-DD').toDate(),
 
-    onChange: (event, selectedDate) => {
-      if (event.type === 'set' && selectedDate) {
-        setToDate(moment(selectedDate).format('YYYY-MM-DD'));
-      }
-    },
-  });
-};
+      onChange: (event, selectedDate) => {
+        if (event.type === 'set' && selectedDate) {
+          setToDate(moment(selectedDate).format('YYYY-MM-DD'));
+        }
+      },
+    });
+  };
 
   const submitSearch = () => {
     setPage(1);
@@ -573,38 +567,55 @@ const openToDatePicker = () => {
   return (
     <View style={styles.container}>
       <View style={styles.typeTabs}>
-        {[
-  {
-    label: 'New',
-    value: 'newLead',
-    count: leadFilterCounts.newLead,
-    color: '#EEF0FF',
-  },
-  {
-    label: 'Retry',
-    value: 'retry',
-    count: leadFilterCounts.retry,
-    color: '#d8dbf3',
-  },
-  {
-    label: 'Today',
-    value: 'todayFollow',
-    count: leadFilterCounts.todayFollow,
-    color: '#F1F0FA',
-  },
-  {
-    label: 'Later',
-    value: 'comingUp',
-    count: leadFilterCounts.comingUp,
-    color: '#FFF4E2',
-  },
-  {
-    label: 'Overdue',
-    value: 'overDue',
-    count: leadFilterCounts.overDue,
-    color: '#FFF0F3',
-  },
-].map(option => (
+        <ScrollView
+  horizontal={true}
+  showsHorizontalScrollIndicator={false}
+  style={{ flexGrow: 0 }}
+  contentContainerStyle={{
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  }}
+>
+{[
+          {
+            label: 'New',
+            value: 'newLead',
+            count: leadFilterCounts.newLead,
+            color: '#EEF0FF',
+          },
+          {
+            label: 'Retry',
+            value: 'retry',
+            count: leadFilterCounts.retry,
+            color: '#eef0ed',
+          },
+          {
+            label: 'Today',
+            value: 'todayFollow',
+            count: leadFilterCounts.todayFollow,
+            color: '#F1F0FA',
+          },
+          {
+            label: 'Later',
+            value: 'comingUp',
+            count: leadFilterCounts.comingUp,
+            color: '#FFF4E2',
+          },
+          {
+            label: 'Overdue',
+            value: 'overDue',
+            count: leadFilterCounts.overDue,
+            color: '#FFF0F3',
+          },
+          {
+      label: 'No Follow Up Required',
+      value: 'noFollowupRequired',
+      count: leadFilterCounts.noFollowupRequired,
+      color: '#E8F5E9',
+    },
+        ].map(option => (
           <TouchableOpacity
             key={option.value}
             accessibilityRole="button"
@@ -629,6 +640,8 @@ const openToDatePicker = () => {
             </Text>
           </TouchableOpacity>
         ))}
+
+</ScrollView>
       </View>
       <View style={styles.statusTabs}>
         {(['pending', 'called'] as const).map(status => (
@@ -638,7 +651,7 @@ const openToDatePicker = () => {
             accessibilityLabel={
               status === 'called' ? 'Called leads' : 'Pending leads'
             }
-            accessibilityState={{selected: callStatus === status}}
+            accessibilityState={{ selected: callStatus === status }}
             style={[
               styles.statusTab,
               callStatus === status && styles.statusTabSelected,
@@ -767,7 +780,7 @@ const openToDatePicker = () => {
             String(item.leadId ?? item.LeadId ?? item.id ?? `${page}-${index}`)
           }
           refreshing={loading}
-          onRefresh={() => setReload(value => value + 1)}
+          onRefresh={() => {setSearch(''), setReload(value => value + 1)}}
           ListEmptyComponent={<Text style={styles.empty}>No leads found.</Text>}
           renderItem={({ item }) => {
             const mobile1 = leadFieldValue(item, [
@@ -801,7 +814,11 @@ const openToDatePicker = () => {
               leadFieldValue(item, ['Created_at']),
             );
             const primaryNumber = number1 || number2;
+            
+
+
             const details = [
+              { label: 'Mobile no', value: leadFieldValue(item, ['MobileNo1']) },
               { label: 'Stage', value: leadFieldValue(item, ['stageName']) },
               {
                 label: 'Response',
@@ -809,15 +826,15 @@ const openToDatePicker = () => {
               },
               {
                 label: 'Next follow-up',
-                value: leadFieldValue(item, [
-                  'nextFollowUp',
-                  'followUpDate',
-                  'nextFollowUpDate',
-                ]),
+                value: leadFieldValue(item, ['NextFollowUpDate',]),
               },
               {
                 label: 'Amount paid',
                 value: leadFieldValue(item, ['totalAmountPaid']),
+              },
+              {
+                label: 'Call Date',
+                value: leadFieldValue(item, ['CallDate']),
               },
               {
                 label: 'SourceName',
@@ -832,11 +849,16 @@ const openToDatePicker = () => {
                 value: leadFieldValue(item, ['LeadUserName']),
               },
               {
+                label: 'Last Mentor',
+                value: leadFieldValue(item, ['FromMentorName']),
+              },
+              {
                 label: 'Remark',
-                value: leadFieldValue(item, [
-                  'currentRemark',
-                  'currentRemarks',
-                ]),
+                value: leadFieldValue(item, ['CurrentRemark',]),
+              },
+              {
+                label: 'Last Remark',
+                value: leadFieldValue(item, ['Last_Remark',]),
               },
             ];
             return (
@@ -850,31 +872,7 @@ const openToDatePicker = () => {
                     </Text>
                   </View>
 
-                  <View style={styles.contactRow}>
-                    {[
-                      { number: number1, display: mobile1 },
-                    ].map((phone, index) =>
-                      phone.display !== '—' ? (
-                        <TouchableOpacity
-                          key={index}
-                          accessibilityRole="button"
-                          accessibilityLabel={`Call ${String(phone.display)}`}
-                          style={styles.phoneLink}
-                          onPress={() => {
-                            if (phone.number) {
-                              openDialer(phone.number, item);
-                            } else {
-                              Alert.alert('Invalid phone number', `Please correct this lead's number: ${String(phone.display)}`);
-                            }
-                          }}>
-                          <Icon name="phone" size={16} color="#15976D" />
-                          <Text style={styles.mobileNumber}>
-                            {String(phone.display)}
-                          </Text>
-                        </TouchableOpacity>
-                      ) : null,
-                    )}
-                  </View>
+                  
                   <View
                     style={[
                       styles.statusBadge,
@@ -897,83 +895,219 @@ const openToDatePicker = () => {
                 </View>
 
                 {details
-                  .filter(detail => detail.value !== '—')
                   .map(detail => (
-                    <View key={detail.label} style={styles.detail}>
-                      <Text style={styles.label}>{detail.label}</Text>
-                      <Text selectable style={styles.value}>
+                    <View key={detail.label} style={[styles.detail, detail.label === 'Last Remark' && styles.lastRemarkDetail]}>
+                      {detail?.label==='Last Remark'?
+                      <View style={styles.remarkLabel}>
+                        <Text style={styles.remarkLabelText}>{detail.label}</Text>
+                        <TouchableOpacity
+                          accessibilityRole="button"
+                          accessibilityLabel="Lead history"
+                          style={styles.historyButton}
+                          onPress={() => {
+                            const leadId = Number(leadFieldValue(item, ['leadId', 'id']));
+                            if (!Number.isFinite(leadId) || leadId <= 0) {
+                              Alert.alert('History unavailable', 'This lead has no valid lead ID.');
+                              return;
+                            }
+                            setHistoryLead({leadId, name: String(leadFieldValue(item, ['name', 'fullName', 'leadName'])), code: String(leadFieldValue(item, ['lead_id', 'leadCode']))});
+                          }}>
+                          <Icon name="clock" size={13} color="#6C4CF1" />
+                        </TouchableOpacity>
+                      </View>
+                      :  <Text style={styles.label}>{detail.label}</Text>
+                    }
+                    <Text selectable style={styles.value}>
                         {String(detail.value)}
                       </Text>
                     </View>
                   ))}
-                <View style={styles.cardActions}>
-                  <TouchableOpacity
-                    accessibilityRole="button"
-                    accessibilityLabel="Open WhatsApp"
-                    disabled={!primaryNumber}
-                    style={[
-                      styles.whatsappButton,
-                      !primaryNumber && styles.disabled,
-                    ]}
-                    onPress={async () => {
-                      try {
-                        await Linking.openURL(
-                          `https://wa.me/${primaryNumber!.replace(/\D/g, '')}`,
-                        );
-                      } catch {
-                        Alert.alert(
-                          'Unable to open WhatsApp',
-                          'Please try again.',
-                        );
-                      }
-                    }}>
-                    <Icon name="message-circle" size={16} color="#13865F" />
-                    <Text style={styles.whatsappText}>WhatsApp</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    accessibilityRole="button"
-                    accessibilityLabel={called ? 'Call again' : 'Call now'}
-                    disabled={!primaryNumber}
-                    style={[
-                      styles.primaryCallButton,
-                      !primaryNumber && styles.disabled,
-                    ]}
-                    onPress={() =>
-                      primaryNumber && openDialer(primaryNumber, item)
-                    }>
-                    <Icon name="phone" size={16} color="#FFF" />
-                    <Text style={styles.buttonText}>
-                      {called ? 'Call Again' : 'Call Now'}
-                    </Text>
-                  </TouchableOpacity>
-                  {user?.role_id === 1 &&<TouchableOpacity
-                    accessibilityRole="button"
-                    accessibilityLabel="Response"
-                    accessibilityHint="Open the lead feedback form"
-                    style={styles.responseButton}
-                    onPress={() => {
-                      const leadId = Number(leadFieldValue(item, ['leadid', 'id']));
-                      if (!Number.isFinite(leadId) || leadId <= 0) {
-                        Alert.alert('Feedback unavailable', 'This lead has no valid lead ID.');
-                        return;
-                      }
-                      setFeedback({
-                        leadId,
-                        call: {
-                          phoneNumber: primaryNumber || '',
-                          duration: 0,
-                          callType: 'MANUAL',
-                          timestamp: Date.now(),
-                        },
-                      });
-                    }}>
-                    <Icon name="clock" size={20} color="#713AF3" />
-                  </TouchableOpacity>}
-                </View>
+
+                  <View style={styles.cardActions}>
+
+  {/* WhatsApp - Icon Only */}
+  <TouchableOpacity
+    accessibilityRole="button"
+    accessibilityLabel="Open WhatsApp"
+    disabled={!primaryNumber}
+    style={[
+      styles.whatsappButton,
+      !primaryNumber && styles.disabled,
+    ]}
+    onPress={async () => {
+      try {
+        await Linking.openURL(
+          `https://wa.me/${primaryNumber!.replace(/\D/g, '')}`
+        );
+      } catch {
+        Alert.alert(
+          'Unable to open WhatsApp',
+          'Please try again.'
+        );
+      }
+    }}
+  >
+    <Icon name="message-circle" size={22} color="#13865F" />
+  </TouchableOpacity>
+
+  {/* Call Now */}
+  <TouchableOpacity
+    accessibilityRole="button"
+    accessibilityLabel={called ? 'Call again' : 'Call now'}
+    disabled={!primaryNumber}
+    style={[
+      styles.primaryCallButton,
+      !primaryNumber && styles.disabled,
+    ]}
+    onPress={() => {
+      if (primaryNumber) {
+        openDialer(primaryNumber, item);
+      }
+    }}
+  >
+    <Icon name="phone" size={17} color="#FFF" />
+    <Text style={styles.buttonText}>
+      {called ? 'Call Again' : 'Call Now'}
+    </Text>
+  </TouchableOpacity>
+
+  {/* AI Call - New Button */}
+  <TouchableOpacity
+    accessibilityRole="button"
+    accessibilityLabel="Auto Call"
+    disabled={!primaryNumber}
+    style={[
+      styles.aiCallButton,
+      !primaryNumber && styles.disabled,
+    ]}
+    onPress={async () => {
+  const leadId = Number(
+    leadFieldValue(item, ['leadid', 'id'])
+  );
+ 
+
+  const executiveContact = String(user?.mobileNo || '').replace(/\D/g, '');
+  const clientContact = String(primaryNumber || '').replace(/\D/g, '');
+  const executiveEmailId = user?.email || 'abc@deetyasoft.com';
+  const password = user?.email || 'abc@deetyasoft.com';
+
+    await rememberLeadCall(
+        Number(leadFieldValue(item, ['leadid', 'id'])),
+        clientContact,
+      );
+
+  if (
+    !Number.isFinite(leadId) ||
+    leadId <= 0 ||
+    !/^\d{10}$/.test(executiveContact) ||
+    !/^\d{10}$/.test(clientContact)
+  ) {
+    Alert.alert(
+      'AI Call',
+      'Valid lead ID, executive mobile number and client mobile number are required.'
+    );
+    return;
+  }
+
+  try {
+    const response = await axios.get(
+      'https://api.dndfilter.com/api/clickToCall/generateCall',
+      {
+        params: {
+          apiKey: 'EQre-Qz32WWgU_Cfz69vhw',
+          executiveContact,
+          clientContact,
+          executiveEmailId,
+          requestId:leadId
+        },
+        timeout: 30000,
+      }
+    );
+
+    console.log('AI Call API Response:', response.data, {
+          apiKey: 'EQre-Qz32WWgU_Cfz69vhw',
+          executiveContact,
+          clientContact,
+          executiveEmailId,
+          password
+        },);
+
+    if (response.data?.status != "success") {
+      Alert.alert(
+        'AI Call Failed',
+        response.data?.message || 'Unable to initiate call.'
+      );
+      return;
+    }
+
+    Alert.alert(
+      'AI Call',
+      response.data?.message || 'Call request submitted successfully.'
+    );
+
+  } catch (error: any) {
+    console.error('AI Call Error:', error?.response?.data || error.message,  'EQre-Qz32WWgU_Cfz69vhw',
+          executiveContact,
+          clientContact,
+          executiveEmailId,);
+
+    Alert.alert(
+      'AI Call Failed',
+      error?.response?.data?.message ||
+      error?.message ||
+      'Unable to connect to calling service.'
+    );
+  }
+}}
+  >
+    <Icon name="cpu" size={17} color="#FFF" />
+    <Text style={styles.aiCallText}>AI Call</Text>
+  </TouchableOpacity>
+
+  {/* Response - Only Role 1  add Number(user?.role_id) === 1 &&  */}
+  {(
+    <TouchableOpacity
+      accessibilityRole="button"
+      accessibilityLabel="Response"
+      accessibilityHint="Open the lead feedback form"
+      style={styles.responseButton}
+      onPress={() => {
+        const leadId = Number(
+          leadFieldValue(item, ['leadid', 'id'])
+        );
+
+        if (!Number.isFinite(leadId) || leadId <= 0) {
+          Alert.alert(
+            'Feedback unavailable',
+            'This lead has no valid lead ID.'
+          );
+          return;
+        }
+
+        setFeedback({
+          leadId,
+          call: {
+            phoneNumber: primaryNumber || '',
+            duration: 0,
+            callType: 'MANUAL',
+            timestamp: Date.now(),
+          },
+        });
+      }}
+    >
+      <Icon name="clock" size={20} color="#713AF3" />
+    </TouchableOpacity>
+  )}
+
+</View>
+
               </View>
             );
           }}
         />
+      )}
+      {historyLead && (
+        <LeadHistoryModal lead={historyLead} token={user?.token} onClose={() => setHistoryLead(null)} />
       )}
       {feedback && (
         <CallFeedbackModal
@@ -1002,39 +1136,39 @@ const openToDatePicker = () => {
 
                   <View style={styles.dateFilterRow}>
 
-  <TouchableOpacity
-    style={styles.dateFilterBox}
-    onPress={openFromDatePicker}>
+                    <TouchableOpacity
+                      style={styles.dateFilterBox}
+                      onPress={openFromDatePicker}>
 
-    <Icon name="calendar" size={15} color="#6C4CF1" />
+                      <Icon name="calendar" size={15} color="#6C4CF1" />
 
-    <View>
-      <Text style={styles.dateFilterLabel}>From</Text>
-      <Text style={styles.dateFilterValue}>
-        {moment(fromDate).format('DD MMM YYYY')}
-      </Text>
-    </View>
+                      <View>
+                        <Text style={styles.dateFilterLabel}>From</Text>
+                        <Text style={styles.dateFilterValue}>
+                          {moment(fromDate).format('DD MMM YYYY')}
+                        </Text>
+                      </View>
 
-  </TouchableOpacity>
+                    </TouchableOpacity>
 
-  <Icon name="arrow-right" size={16} color="#98A2B3" />
+                    <Icon name="arrow-right" size={16} color="#98A2B3" />
 
-  <TouchableOpacity
-    style={styles.dateFilterBox}
-    onPress={openToDatePicker}>
+                    <TouchableOpacity
+                      style={styles.dateFilterBox}
+                      onPress={openToDatePicker}>
 
-    <Icon name="calendar" size={15} color="#6C4CF1" />
+                      <Icon name="calendar" size={15} color="#6C4CF1" />
 
-    <View>
-      <Text style={styles.dateFilterLabel}>To</Text>
-      <Text style={styles.dateFilterValue}>
-        {moment(toDate).format('DD MMM YYYY')}
-      </Text>
-    </View>
+                      <View>
+                        <Text style={styles.dateFilterLabel}>To</Text>
+                        <Text style={styles.dateFilterValue}>
+                          {moment(toDate).format('DD MMM YYYY')}
+                        </Text>
+                      </View>
 
-  </TouchableOpacity>
+                    </TouchableOpacity>
 
-</View>
+                  </View>
                   <Text style={styles.filterSubtitle}>
                     Select source, campaign and lead type
                   </Text>
@@ -1138,80 +1272,85 @@ const openToDatePicker = () => {
         </View>
       </Modal>
       <Modal
-  visible={universityDropdownOpen}
-  transparent
-  animationType="fade"
-  onRequestClose={() => setUniversityDropdownOpen(false)}
->
-  <TouchableOpacity
-    activeOpacity={1}
-    onPress={() => setUniversityDropdownOpen(false)}
-    style={{
-      flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.2)',
-      alignItems: 'flex-end',
-      paddingTop: 65,
-      paddingRight: 12,
-    }}
-  >
-    <View
-      style={{
-        width: 170,
-        backgroundColor: '#FFF',
-        borderRadius: 12,
-        padding: 6,
-        elevation: 8,
-      }}
-    >
-      {[
-        { id: 3, name: 'DDUGKY' },
-        { id: 2, name: 'SCVT' },
-      ].map(item => (
+        visible={universityDropdownOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setUniversityDropdownOpen(false)}
+      >
         <TouchableOpacity
-          key={item.id}
-          onPress={() => {
-            setUniversityDropdownOpen(false);
-
-            if (universityId !== item.id) {
-              setUniversityId(item.id);
-              setStageId(null);
-              setLoadedStageFilter(undefined);
-              setSelectedLeadType(null);
-              setSelectedSourceId(null);
-              setSelectedCampaignId(null);
-              setTempSourceId(null);
-              setTempCampaignId(null);
-              setQuery('');
-              setSearch('');
-              setPage(1);
-            }
-          }}
+          activeOpacity={1}
+          onPress={() => setUniversityDropdownOpen(false)}
           style={{
-            padding: 13,
-            borderRadius: 8,
-            backgroundColor:
-              universityId === item.id ? '#F1EBFF' : '#FFF',
-            flexDirection: 'row',
-            justifyContent: 'space-between',
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.2)',
+            alignItems: 'flex-end',
+            paddingTop: 65,
+            paddingRight: 12,
           }}
         >
-          <Text style={{ color: '#344054', fontWeight: '600' }}>
-            {item.name}
-          </Text>
+          <View
+            style={{
+              width: 170,
+              backgroundColor: '#FFF',
+              borderRadius: 12,
+              padding: 6,
+              elevation: 8,
+            }}
+          >
+            {[
+              { id: 3, name: 'DDUGKY' },
+              { id: 2, name: 'SCVT' },
+            ].map(item => (
+              <TouchableOpacity
+                key={item.id}
+                onPress={() => {
+                  setUniversityDropdownOpen(false);
 
-          {universityId === item.id && (
-            <Icon name="check" size={18} color="#713AF3" />
-          )}
+                  if (universityId !== item.id) {
+                    setUniversityId(item.id);
+                    setStageId(null);
+                    setLoadedStageFilter(undefined);
+                    setSelectedLeadType(null);
+                    setSelectedSourceId(null);
+                    setSelectedCampaignId(null);
+                    setTempSourceId(null);
+                    setTempCampaignId(null);
+                    setQuery('');
+                    setSearch('');
+                    setPage(1);
+                  }
+                }}
+                style={{
+                  padding: 13,
+                  borderRadius: 8,
+                  backgroundColor:
+                    universityId === item.id ? '#F1EBFF' : '#FFF',
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <Text style={{ color: '#344054', fontWeight: '600' }}>
+                  {item.name}
+                </Text>
+
+                {universityId === item.id && (
+                  <Icon name="check" size={18} color="#713AF3" />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
         </TouchableOpacity>
-      ))}
-    </View>
-  </TouchableOpacity>
-</Modal>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  lastRemarkDetail: {flexWrap: 'wrap', alignItems: 'center'},
+  remarkLabel: {flexDirection: 'row', alignItems: 'center', gap: 6},
+  remarkLabelText: {color: '#667085', fontSize: 12},
+  historyButton: {flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 32, paddingHorizontal: 8, borderRadius: 8, borderWidth: 1, borderColor: '#DDD6FE', backgroundColor: '#F0ECFF'},
+  historyButtonText: {color: '#6C4CF1', fontSize: 11, fontWeight: '700'},
   typeTabs: { flexDirection: 'row', gap: 7, marginBottom: 12 },
   typeTab: {
     flex: 1,
@@ -1221,6 +1360,8 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
+    width:120,
+    marginHorizontal:10
   },
   typeTabSelected: { borderColor: '#8B73F8' },
   statusTabs: {
@@ -1305,25 +1446,55 @@ const styles = StyleSheet.create({
   },
   updateStripCalled: { backgroundColor: '#EBFAF4' },
   updateText: { flex: 1, fontSize: 11, color: '#475467' },
-  cardActions: {
-    flexDirection: 'row',
-    gap: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#F2F0F8',
-    marginTop: 10,
-    paddingTop: 10,
-  },
-  whatsappButton: {
-    flex: 1,
-    minHeight: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#D9EDE4',
-  },
+ cardActions: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: 7,
+  borderTopWidth: 1,
+  borderTopColor: '#F2F0F8',
+  marginTop: 10,
+  paddingTop: 10,
+},
+
+whatsappButton: {
+  width: 44,
+  height: 44,
+  alignItems: 'center',
+  justifyContent: 'center',
+  borderRadius: 9,
+  borderWidth: 1,
+  borderColor: '#D9EDE4',
+  backgroundColor: '#F0FDF4',
+},
+
+primaryCallButton: {
+  flex: 1,
+  height: 44,
+  flexDirection: 'row',
+  gap: 5,
+  alignItems: 'center',
+  justifyContent: 'center',
+  borderRadius: 9,
+  backgroundColor: '#713AF3',
+},
+
+aiCallButton: {
+  minWidth: 85,
+  height: 44,
+  paddingHorizontal: 10,
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 5,
+  borderRadius: 9,
+  backgroundColor: '#2563EB',
+},
+
+aiCallText: {
+  color: '#FFFFFF',
+  fontSize: 12,
+  fontWeight: '700',
+},
   whatsappText: { fontSize: 12, fontWeight: '600', color: '#13865F' },
   responseButton: {
     width: 44,
@@ -1623,42 +1794,42 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   dateFilterRow: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  gap: 7,
-  marginBottom: 10,
-},
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    marginBottom: 10,
+  },
 
-dateFilterBox: {
-  flex: 1,
-  minHeight: 46,
-  flexDirection: 'row',
-  alignItems: 'center',
-  gap: 8,
-  paddingHorizontal: 10,
-  backgroundColor: '#FFF',
-  borderWidth: 1,
-  borderColor: '#DDD6ED',
-  borderRadius: 9,
-},
+  dateFilterBox: {
+    flex: 1,
+    minHeight: 46,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 10,
+    backgroundColor: '#FFF',
+    borderWidth: 1,
+    borderColor: '#DDD6ED',
+    borderRadius: 9,
+  },
 
-dateFilterLabel: {
-  fontSize: 9,
-  color: '#98A2B3',
-},
+  dateFilterLabel: {
+    fontSize: 9,
+    color: '#98A2B3',
+  },
 
-dateFilterValue: {
-  fontSize: 12,
-  fontWeight: '700',
-  color: '#344054',
-},
+  dateFilterValue: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#344054',
+  },
 
-dateApplyButton: {
-  width: 42,
-  height: 46,
-  borderRadius: 9,
-  backgroundColor: '#6C4CF1',
-  alignItems: 'center',
-  justifyContent: 'center',
-},
+  dateApplyButton: {
+    width: 42,
+    height: 46,
+    borderRadius: 9,
+    backgroundColor: '#6C4CF1',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });

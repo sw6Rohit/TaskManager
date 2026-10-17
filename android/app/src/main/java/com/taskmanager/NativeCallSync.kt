@@ -60,6 +60,10 @@ object NativeCallSync {
                     .put("call_Type", cursor.getInt(4).toString())
                     .put("caller_Name", cursor.getString(5)?.takeIf { it.isNotEmpty() } ?: "Unknown")
                     .put("callerId", "0").put("simNo", "1")
+
+                    Log.d("NativeCallSync", "========== CALL PAYLOAD ==========")
+                Log.d("NativeCallSync", "CallLog ID: $id")
+                Log.d("NativeCallSync", "Payload: ${payload.toString(2)}")
                 post(payload)
                 // Save each successful row so a later failure does not replay the whole batch.
                 check(preferences.edit().putLong("timestamp", date).putLong("row", id).commit())

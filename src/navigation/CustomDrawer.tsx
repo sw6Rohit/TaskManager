@@ -1,14 +1,32 @@
-import React, {useState} from 'react';
-import {View, Text, TouchableOpacity, StyleSheet, Image} from 'react-native';
+import React, {useEffect, useState} from 'react';
+import {View, Text, TouchableOpacity, StyleSheet, Image, ActivityIndicator} from 'react-native';
 import {DrawerContentScrollView} from '@react-navigation/drawer';
-import {useSelector} from 'react-redux';
+import {useDispatch, useSelector} from 'react-redux';
 import {RootState} from '../redux/store';
 import Icon from 'react-native-vector-icons/Feather';
+import { useNavigation } from '@react-navigation/native';
+import { clearUser } from '../redux/slices/userSlice';
 
 export default function CustomDrawer(props: any) {
   const {menus, userInfo} = useSelector((state: RootState) => state.user);
+  const navigation = useNavigation();
+  const dispatch = useDispatch();
+  const [loading, setLoading] = useState(false);
 
   const [expandedMenus, setExpandedMenus] = useState<number[]>([]);
+    const userData = useSelector((state: RootState) => state?.user);
+  
+    useEffect(() => {
+      if (!userData.userInfo) {
+        setLoading(false);
+        navigation.reset({index: 0, routes: [{name: 'Login'}]});
+      }
+    }, [userData]);
+  
+    const logout = () => {
+      dispatch(clearUser());
+      setLoading(true);
+    };
 
   const toggleMenu = (menuId: number) => {
     setExpandedMenus(prev =>
@@ -100,8 +118,6 @@ export default function CustomDrawer(props: any) {
       contentContainerStyle={styles.drawerContainer}>
       <View style={styles.header}>
         <View style={styles.logoContainer}>
-          {/* <Image source={require('../assets/logo.png')} style={styles.logo} /> */}
-
           <Text style={styles.logoText}>BERRY</Text>
         </View>
 
@@ -114,7 +130,7 @@ export default function CustomDrawer(props: any) {
 
       <View style={styles.divider} />
       {treeMenus.map(menu => renderMenu(menu))}
-      {Number(userInfo?.entityTypeId) === 4 && (
+      {/* {Number(userInfo?.entityTypeId) === 4 && (
         <TouchableOpacity
           style={styles.menuRow}
           onPress={() => props.navigation.navigate('StudentFees')}>
@@ -123,7 +139,14 @@ export default function CustomDrawer(props: any) {
             <Text style={styles.menuText}>My Fees</Text>
           </View>
         </TouchableOpacity>
-      )}
+      )} */}
+      <TouchableOpacity style={styles.logoutButton} onPress={() => logout()}>
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.logoutButtonText}>Log Out</Text>
+              )}
+            </TouchableOpacity>
     </DrawerContentScrollView>
   );
 }
@@ -232,5 +255,20 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#344054',
     fontWeight: '400',
+  },
+   logoutButton: {
+    backgroundColor: '#ff6f61',
+    paddingVertical: 12,
+    borderRadius: 25,
+    alignItems: 'center',
+    width: '80%',
+    alignSelf: 'center',
+    marginTop: 20,
+    elevation: 5,
+  },
+  logoutButtonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
 });
