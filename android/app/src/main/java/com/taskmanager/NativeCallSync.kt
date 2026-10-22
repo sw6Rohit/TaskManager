@@ -37,7 +37,10 @@ object NativeCallSync {
         }
         val timestamp = preferences.getLong("timestamp", 0)
         val row = preferences.getLong("row", -1)
-        val format = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") }
+        // Send IST wall-clock time without a timezone suffix, as required by the API.
+        val format = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.US).apply {
+            timeZone = TimeZone.getTimeZone("Asia/Kolkata")
+        }
         var uploaded = 0
         context.contentResolver.query(
             CallLog.Calls.CONTENT_URI,
