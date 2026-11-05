@@ -1018,7 +1018,7 @@ export default function LeadDashboardScreen() {
           executiveContact,
           clientContact,
           executiveEmailId,
-          leadId:leadId
+          requestId:leadId
         },
         timeout: 30000,
       }
@@ -1029,7 +1029,7 @@ export default function LeadDashboardScreen() {
           executiveContact,
           clientContact,
           executiveEmailId,
-          password
+          requestId:leadId
         },);
 
     if (response.data?.status != "success") {
